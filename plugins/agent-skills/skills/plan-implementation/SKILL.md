@@ -1,6 +1,6 @@
 ---
 name: plan-implementation
-description: Create structured implementation plans for NEW features, complex additions, or multi-phase work. Use when user asks to "create a plan" or "make an implementation plan" or work requires multiple distinct phases. Outputs a local IMPLEMENTATION_PLAN_<feature-name>.md file with phases, tasks, quality gates (code review, tests, linter, type checker), and status tracking. For restructuring existing code without changing behavior, use plan-refactor instead.
+description: Create structured implementation plans for NEW features, complex additions, or multi-phase work. Use when user asks to "create a plan" or "make an implementation plan" or work requires multiple distinct phases. Outputs a local IMPLEMENTATION_PLAN_<feature-name>.md file with phases, tasks, quality gates (code review, tests, linter, type checker), and status tracking. For restructuring existing code without changing behavior, use plan-refactor instead. If Claude Code is in plan mode, plan mode itself already produces an in-conversation plan via ExitPlanMode — use review-plan on that draft instead of invoking this skill.
 ---
 
 # Implementation Plan
@@ -150,6 +150,11 @@ Before starting implementation:
 - Ensure each phase has clear completion criteria
 - Confirm quality gates are appropriate
 - Check that all requirements are covered
+- Offer to run the `review-plan` skill, which routes the plan through
+  the `senior-engineer` (DRY, architecture, phase ordering) and, for
+  user-facing work, the `product-manager` (scope, UX) agents. This is
+  the cheapest point to catch architectural mistakes — before any code
+  is written.
 
 ## Working With the Plan
 
@@ -370,6 +375,13 @@ When creating and working with plans:
 - **Use git commands** to commit plan updates with phase changes
 
 ## Integration with Other Skills
+
+**Use with review-plan skill:**
+
+- After writing the plan, offer `review-plan` for a senior-engineer /
+  product-manager judgment pass before implementation starts.
+- Apply any blocking findings by editing the plan file, then begin
+  Phase 1.
 
 **Use with commit skill:**
 

@@ -26,11 +26,11 @@ Autonomous refactoring specialist. Refines recently modified code for clarity an
 
 ### senior-engineer
 
-15+ years building scalable SaaS platforms. Opinionated technical reviewer focused on scalability, maintainability, operational cost, testability, and architectural trade-offs.
+15+ years building scalable SaaS platforms. Opinionated technical reviewer focused on scalability, maintainability, operational cost, testability, and architectural trade-offs. Also reviews plans (`IMPLEMENTATION_PLAN_*.md`, `REFACTOR_PLAN_*.md`, plan-mode drafts) for DRY, coupling, phase ordering, and missed seams.
 
-**Auto-invokes when:** user says "review as a senior engineer", "architectural review", "will this scale", "put on your senior engineer hat", etc.
+**Auto-invokes when:** user says "review as a senior engineer", "architectural review", "will this scale", "put on your senior engineer hat", "review this plan", "analyze the plan", "critique the plan", etc.
 
-**Uses:** `review-code`, `find-bugs`, `review-security`, `improve-architecture` skills for the mechanical pass; layers judgment on top.
+**Uses:** `review-code`, `find-bugs`, `review-security`, `improve-architecture` skills for the mechanical pass; layers judgment on top. Invoked by the `review-plan` skill for plan reviews.
 
 ### security-auditor
 
@@ -42,9 +42,9 @@ Offensive + defensive security engineer. Thinks like an attacker, produces HIGH-
 
 ### product-manager
 
-15+ years shipping consumer and enterprise products. Strong UX sensibility. Cares about user journeys, scope discipline, information architecture, edge-case UX (error/empty/loading states), and feature prioritization frameworks (RICE, Kano, JTBD).
+15+ years shipping consumer and enterprise products. Strong UX sensibility. Cares about user journeys, scope discipline, information architecture, edge-case UX (error/empty/loading states), and feature prioritization frameworks (RICE, Kano, JTBD). Also reviews plans for user-facing work (scope creep, per-phase user impact, missing error/empty/loading-state plans).
 
-**Auto-invokes when:** user says "review as a product manager", "PM review", "UX review", "is this the right feature", "prioritize these", etc.
+**Auto-invokes when:** user says "review as a product manager", "PM review", "UX review", "is this the right feature", "prioritize these", etc. Invoked by the `review-plan` skill when the plan has user-facing surface.
 
 ## Adding a new agent
 
