@@ -1,6 +1,6 @@
 ---
 name: plan-refactor
-description: Create a detailed refactor plan with tiny commits via user interview. Writes the plan to a local REFACTOR_PLAN_<short-name>.md file. Use for restructuring existing code without changing behavior. For NEW features or phased additions, use plan-implementation instead.
+description: Create a detailed refactor plan with tiny commits via user interview. Writes the plan to a local REFACTOR_PLAN_<short-name>.md file. Use for restructuring existing code without changing behavior. For NEW features or phased additions, use plan-implementation instead. If Claude Code is in plan mode, plan mode itself already produces an in-conversation plan via ExitPlanMode — use review-plan on that draft instead of invoking this skill.
 ---
 
 This skill is invoked when the user wants to plan a refactor. Go through the steps below. You may skip steps if you don't consider them necessary.
@@ -22,6 +22,8 @@ This skill is invoked when the user wants to plan a refactor. Go through the ste
 8. Write the plan to a local file named `REFACTOR_PLAN_<short-name>.md` at the repo root (e.g., `REFACTOR_PLAN_extract-auth-middleware.md`). Use the template below.
 
    Don't auto-publish the plan to GitHub/JIRA/etc. If the user wants it as a GitHub issue, JIRA ticket, or team-tracker entry afterwards, they'll tell you explicitly — many repos (OSS, internal tools, solo projects) don't want an issue created just so someone can refactor.
+
+9. After the plan file is written, offer to run the `review-plan` skill for a `senior-engineer` judgment pass (DRY, coupling, commit ordering, missed seams). This is the cheapest point to catch architectural mistakes — before any code is written. Apply any blocking findings by editing the plan file before starting the refactor.
 
 Use the following template for the plan body:
 

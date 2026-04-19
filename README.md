@@ -79,6 +79,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [grill-me](plugins/agent-skills/skills/grill-me/SKILL.md) | Interview the user one question at a time to stress-test a plan |
 | [plan-implementation](plugins/agent-skills/skills/plan-implementation/SKILL.md) | Structured plan for NEW features (writes `IMPLEMENTATION_PLAN_*.md`) |
 | [plan-refactor](plugins/agent-skills/skills/plan-refactor/SKILL.md) | Tiny-commit refactor plan (writes `REFACTOR_PLAN_*.md`) |
+| [review-plan](plugins/agent-skills/skills/review-plan/SKILL.md) | Route an existing plan (file or plan-mode draft) through `senior-engineer` and `product-manager` for a judgment pass |
 | [improve-architecture](plugins/agent-skills/skills/improve-architecture/SKILL.md) | Find architectural friction and design module-deepening refactors |
 
 ### Meta
