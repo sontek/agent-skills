@@ -1,9 +1,9 @@
 ---
 name: plan-refactor
-description: Create a detailed refactor plan with tiny commits via user interview, then file it as a GitHub issue RFC. Use for restructuring existing code without changing behavior. Outputs a GitHub issue (not a local file). For NEW features or phased additions, use plan-implementation instead.
+description: Create a detailed refactor plan with tiny commits via user interview. Writes the plan to a local REFACTOR_PLAN_<short-name>.md file. Use for restructuring existing code without changing behavior. For NEW features or phased additions, use plan-implementation instead.
 ---
 
-This skill will be invoked when the user wants to create a refactor request. You should go through the steps below. You may skip steps if you don't consider them necessary.
+This skill is invoked when the user wants to plan a refactor. Go through the steps below. You may skip steps if you don't consider them necessary.
 
 1. Ask the user for a long, detailed description of the problem they want to solve and any potential ideas for solutions.
 
@@ -19,16 +19,11 @@ This skill will be invoked when the user wants to create a refactor request. You
 
 7. Break the implementation into a plan of tiny commits. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working."
 
-8. Create a GitHub issue with the refactor plan using `gh issue create` (requires `gh` CLI authenticated):
+8. Write the plan to a local file named `REFACTOR_PLAN_<short-name>.md` at the repo root (e.g., `REFACTOR_PLAN_extract-auth-middleware.md`). Use the template below.
 
-   ```bash
-   gh issue create --title "ref: <short description>" --body "$(cat <<'EOF'
-   <filled-in template below>
-   EOF
-   )"
-   ```
+   Don't auto-publish the plan to GitHub/JIRA/etc. If the user wants it as a GitHub issue, JIRA ticket, or team-tracker entry afterwards, they'll tell you explicitly — many repos (OSS, internal tools, solo projects) don't want an issue created just so someone can refactor.
 
-   Use the following template for the issue body:
+Use the following template for the plan body:
 
 <refactor-plan-template>
 
