@@ -1,207 +1,101 @@
 ---
 name: create-branch
-description:
-  Create git branches following naming conventions. Use when creating new
-  feature branches, bug fix branches, or any branch for development work.
-  Defines the branch naming standards used across commit and PR skills.
+description: Create git branches following naming conventions. Use when creating new feature branches, bug fix branches, or any branch for development work. Defines the branch naming standards used across commit and PR skills.
+argument-hint: '[optional description of the work]'
 ---
 
 # Create Branch
 
 Create git branches following consistent naming conventions.
+Keep this workflow non-interactive unless the user explicitly asks to choose the name manually.
 
 ## Branch Naming Convention
 
-Branch names should follow the pattern: `<type>/<short-description>`
-
-The type should match the primary type of work being done (same as commit
-types).
+Branch names follow `<type>/<short-description>` (kebab-case, ASCII, ideally 3-6 words).
 
 ### Branch Types
 
-| Type    | When to Use                           | Example                      |
-| ------- | ------------------------------------- | ---------------------------- |
-| `feat`  | New feature or functionality          | `feat/add-user-auth`         |
-| `fix`   | Bug fix                               | `fix/null-pointer-error`     |
-| `ref`   | Refactoring (no behavior change)      | `ref/extract-validation`     |
-| `perf`  | Performance improvement               | `perf/optimize-queries`      |
-| `docs`  | Documentation changes                 | `docs/update-readme`         |
-| `test`  | Adding or correcting tests            | `test/add-integration-tests` |
-| `build` | Build system or dependencies          | `build/upgrade-webpack`      |
-| `ci`    | CI/CD configuration                   | `ci/add-github-actions`      |
-| `chore` | Maintenance, cleanup, or housekeeping | `chore/update-deps`          |
-| `style` | Code formatting (no logic change)     | `style/format-components`    |
+| Type | Use when |
+|------|----------|
+| `feat` | New functionality |
+| `fix` | Broken behavior now works |
+| `ref` | Behavior stays the same, structure changes |
+| `perf` | Same behavior, faster |
+| `chore` | Maintenance of existing tooling/config |
+| `style` | Visual or formatting only |
+| `docs` | Documentation only |
+| `test` | Tests only |
+| `ci` | CI/CD config |
+| `build` | Build system or dependencies |
+| `meta` | Repo metadata |
+| `license` | License changes |
 
-### Description Guidelines
+When unsure: use `feat` for new things, `ref` for restructuring, `chore` for maintenance.
 
-The description should be:
+## Workflow
 
-- **Short**: 2-4 words maximum
-- **Descriptive**: Clearly indicates what the branch is for
-- **Lowercase**: Use lowercase with hyphens (kebab-case)
-- **No special characters**: Only letters, numbers, and hyphens
+1. **Resolve the work description:**
+   - If `$ARGUMENTS` is present, use it
+   - Otherwise inspect local state:
+     ```bash
+     git diff
+     git diff --cached
+     git status --short
+     ```
+   - If there are local changes, derive a short description from the diff
+   - If there are no local changes, use a generic description like `repo-maintenance`, `tooling-update`, or `work-in-progress`
 
-### Good Branch Names
+2. **Classify the branch type** from the table above based on the work being done.
 
-```bash
+3. **Generate the branch name** as `<type>/<short-description>`. Keep `<short-description>` kebab-case, ASCII-only, ideally 3-6 words.
+
+4. **Choose the base without prompting:**
+   ```bash
+   git branch --show-current
+   git remote | grep -qx origin && echo origin || git remote | head -1
+   git symbolic-ref refs/remotes/<remote>/HEAD 2>/dev/null | sed 's|refs/remotes/<remote>/||' | tr -d '[:space:]'
+   ```
+   - If default branch detection fails, fall back to `main`, then `master`, then the current branch
+   - If on a detached HEAD, branch from the current commit
+   - If already on a non-default branch, branch from the current branch
+   - Only switch to the default branch when the user explicitly asks
+
+5. **Avoid collisions** by appending `-2`, `-3`, etc. until the name is unused locally and remotely.
+
+6. **Create the branch:**
+   ```bash
+   git checkout -b <branch-name>
+   ```
+   Report the final branch name; do not stop for confirmation.
+
+## Good Branch Names
+
+```
 feat/add-user-auth              # Clear, concise, descriptive
 fix/null-pointer-dashboard      # Specific about what's being fixed
 ref/extract-validation-logic    # Clear refactoring goal
 test/add-api-tests              # Clear testing scope
 ```
 
-### Bad Branch Names
-
-```bash
-feature/add-authentication-system-for-users    # Too long
-fix-bug                                         # Too vague
-feat/AddUserAuth                                # Wrong case (use lowercase)
-john/my-work                                    # Personal prefix (not descriptive)
-feat_add_auth                                   # Wrong separator (use hyphens)
-```
-
-## Creating a Branch
-
-### Check Current Branch First
-
-Before creating a new branch, verify where you are:
-
-```bash
-# Check current branch
-git branch --show-current
-
-# See if you have uncommitted changes
-git status
-```
-
-**If you have uncommitted changes:**
-
-- Commit them first, OR
-- Stash them: `git stash`
-
-### Create and Switch to New Branch
-
-```bash
-# Create and switch to new branch from current location
-git checkout -b <type>/<short-description>
-```
-
-### Create from Specific Base Branch
-
-If you need to branch from a specific base (like `main` or `develop`):
-
-```bash
-# Make sure base branch is up to date
-git checkout main
-git pull
-
-# Create new branch from main
-git checkout -b feat/add-user-auth
-```
-
-## Examples
-
-### Creating a Feature Branch
-
-```bash
-# Starting from main
-git checkout main
-git pull
-git checkout -b feat/add-oauth
-
-# Verify you're on the new branch
-git branch --show-current  # Should output: feat/add-oauth
-```
-
-### Creating a Fix Branch
-
-```bash
-# Starting from develop
-git checkout develop
-git pull
-git checkout -b fix/session-timeout
-
-# Verify
-git branch --show-current  # Should output: fix/session-timeout
-```
-
-### Creating a Refactor Branch
-
-```bash
-# From current branch (already has related work)
-git checkout -b ref/extract-utils
-
-# Verify
-git branch --show-current  # Should output: ref/extract-utils
-```
-
-## Branch Workflow
-
-### 1. Check Base Branch
-
-```bash
-# If you need to branch from main/master
-git checkout main
-git pull
-```
-
-### 2. Create Branch
-
-```bash
-# Create with appropriate type and description
-git checkout -b feat/add-feature-name
-```
-
-### 3. Verify Branch
-
-```bash
-# Confirm you're on the new branch
-git branch --show-current
-
-# Should show: feat/add-feature-name
-```
-
-### 4. Push Branch (When Ready)
-
-```bash
-# Push and set upstream tracking
-git push -u origin feat/add-feature-name
-```
-
 ## Common Mistakes to Avoid
 
-| Mistake         | Bad Example          | Good Example       |
-| --------------- | -------------------- | ------------------ |
-| Too long        | feat/add-user-system | feat/add-user-auth |
-| Too vague       | fix/bug              | fix/null-pointer   |
-| Wrong case      | Feat/AddAuth         | feat/add-auth      |
-| Personal prefix | john/feature         | feat/feature-name  |
-| Wrong separator | feat_add_auth        | feat/add-auth      |
-| No type         | add-authentication   | feat/add-auth      |
+| Mistake         | Bad Example                                   | Good Example       |
+| --------------- | --------------------------------------------- | ------------------ |
+| Too long        | `feature/add-authentication-system-for-users` | `feat/add-user-auth` |
+| Too vague       | `fix-bug`                                     | `fix/null-pointer` |
+| Wrong case      | `Feat/AddAuth`                                | `feat/add-auth`    |
+| Personal prefix | `john/my-work`                                | `feat/feature-name` |
+| Wrong separator | `feat_add_auth`                               | `feat/add-auth`    |
+| No type         | `add-authentication`                          | `feat/add-auth`    |
+| Spelled-out type | `feature/add-auth`                           | `feat/add-auth`    |
 
-## Referencing Branch Names
+## Handling Uncommitted Changes
 
-Other skills reference these conventions:
+If there are uncommitted changes when you start:
+- If they belong on the new branch, that's fine — `git checkout -b` carries them over
+- If they belong elsewhere, stash first: `git stash`, create the branch, unstash on the correct branch
 
-- **commit skill**: Uses branch naming to ensure commits are on feature
-  branches, not main/master
-- **create-pr skill**: Uses branch naming for PR titles and validation
+## Related Skills
 
-## Checklist Before Creating Branch
-
-- [ ] Verified current branch and location
-- [ ] Base branch is up to date (if branching from main/develop)
-- [ ] No uncommitted changes (or stashed)
-- [ ] Branch name follows `<type>/<short-description>` format
-- [ ] Type matches the work being done
-- [ ] Description is 2-4 words, lowercase, hyphen-separated
-- [ ] Branch name is descriptive and clear
-
-## Tool Usage
-
-- **Use `git checkout -b <branch-name>`** to create and switch to new branch
-- **Use `git branch --show-current`** to verify current branch
-- **Use `git status`** to check for uncommitted changes
-- **Use `git push -u origin <branch-name>`** to push new branch and set tracking
-- **DO NOT use `git checkout -b` with `-i` or interactive flags** (not
-  supported)
+- **commit skill**: Uses branch naming to verify commits aren't on main/master
+- **create-pr skill**: Uses branch type to derive PR title prefix
