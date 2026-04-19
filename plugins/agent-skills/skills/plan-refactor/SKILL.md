@@ -19,7 +19,16 @@ This skill will be invoked when the user wants to create a refactor request. You
 
 7. Break the implementation into a plan of tiny commits. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working."
 
-8. Create a GitHub issue with the refactor plan. Use the following template for the issue description:
+8. Create a GitHub issue with the refactor plan using `gh issue create` (requires `gh` CLI authenticated):
+
+   ```bash
+   gh issue create --title "ref: <short description>" --body "$(cat <<'EOF'
+   <filled-in template below>
+   EOF
+   )"
+   ```
+
+   Use the following template for the issue body:
 
 <refactor-plan-template>
 

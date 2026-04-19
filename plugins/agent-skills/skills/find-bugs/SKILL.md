@@ -1,9 +1,6 @@
 ---
 name: find-bugs
-description:
-  Find bugs, security vulnerabilities, and code quality issues in branch
-  changes. Use when reviewing code for bugs, security issues, or quality
-  problems. Thorough but concise reporting.
+description: Find bugs, security vulnerabilities, and code quality issues in branch changes. Use when reviewing code for bugs, security issues, or quality problems. Thorough but concise reporting.
 ---
 
 # Find Bugs and Security Issues

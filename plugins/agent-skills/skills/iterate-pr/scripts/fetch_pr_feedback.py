@@ -12,7 +12,7 @@ If --pr is not specified, uses the PR for the current branch.
 
 Output: JSON to stdout with categorized feedback.
 
-Categories (using LOGAF scale - see https://develop.sentry.dev/engineering-practices/code-review/#logaf-scale):
+Categories (using LOGAF priority scale — high/medium/low):
 - high: Must address before merge (h:, blocker, changes requested)
 - medium: Should address (m:, standard feedback)
 - low: Optional suggestions (l:, nit, style)
@@ -39,7 +39,6 @@ from typing import Any
 # Bots that provide actionable code review feedback (security issues, lint
 # violations, bugs). Their comments are categorized by content, not skipped.
 REVIEW_BOT_PATTERNS = [
-    r"(?i)^sentry",
     r"(?i)^warden",
     r"(?i)^cursor",
     r"(?i)^bugbot",
@@ -186,7 +185,7 @@ def get_review_threads(owner: str, repo: str, pr_number: int) -> list[dict[str, 
 def detect_logaf(body: str) -> str | None:
     """Detect LOGAF scale markers in comment body.
 
-    LOGAF scale (https://develop.sentry.dev/engineering-practices/code-review/#logaf-scale):
+    LOGAF priority scale:
     - l: / [l] / low: → low priority (optional)
     - m: / [m] / medium: → medium priority (should address)
     - h: / [h] / high: → high priority (must address)
