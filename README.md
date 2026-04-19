@@ -4,7 +4,7 @@ Agent skills and subagents, following the [Agent Skills](https://agentskills.io)
 
 Original inspiration:
 - https://github.com/getsentry/sentry-skills
-- https://github.com/mattpocock/agent-skills
+- https://github.com/mattpocock/skills
 
 ## Installation
 
