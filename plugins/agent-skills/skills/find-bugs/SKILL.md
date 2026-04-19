@@ -1,9 +1,6 @@
 ---
 name: find-bugs
-description:
-  Find bugs, security vulnerabilities, and code quality issues in branch
-  changes. Use when reviewing code for bugs, security issues, or quality
-  problems. Thorough but concise reporting.
+description: Find bugs, security vulnerabilities, and code quality issues in branch changes. Use when reviewing code for bugs, security issues, or quality problems. Thorough but concise reporting.
 ---
 
 # Find Bugs and Security Issues
@@ -174,7 +171,18 @@ For each potential issue:
 - Test/mock code only
 - Existing issue not introduced by this branch
 
-### Step 5: Report Findings
+### Step 5: Pre-Conclusion Audit
+
+Before finalizing your findings, you MUST explicitly:
+
+1. **List every file you reviewed** and confirm you read it completely (not just the diff hunk — the full file for context).
+2. **List every security category from Step 3** and note, per file, whether you found issues or confirmed it's clean.
+3. **List any areas you could NOT fully verify** and explain why (e.g., "could not trace authorization for `/api/export` — the permission class is defined in a file outside this diff").
+4. Only then produce your findings.
+
+This step is not optional — it forces the check-every-item discipline that prevents confident "looks clean" reports on code you only skimmed. If you cannot complete the audit, say so explicitly rather than hiding the gap.
+
+### Step 6: Report Findings
 
 Be concise and accurate. Don't invent issues.
 

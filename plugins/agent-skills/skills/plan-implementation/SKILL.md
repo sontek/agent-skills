@@ -1,14 +1,6 @@
 ---
-name: implementation-plan
-description:
-  Create structured implementation plans for complex features, refactoring, or
-  multi-phase work. MUST be used when user asks to "create a plan" or "make an
-  implementation plan" or work requires multiple distinct phases. Creates file
-  named IMPLEMENTATION_PLAN_<feature-name>.md with phases that include tasks,
-  quality gates (code review, tests, linter, type checker), and status tracking.
-  Each phase must have Goal, Status (Not Started/In Progress/Complete), Tasks
-  checklist, and Quality Gates checklist. Plans are living documents - update as
-  work progresses, commit with code changes.
+name: plan-implementation
+description: Create structured implementation plans for NEW features, complex additions, or multi-phase work. Use when user asks to "create a plan" or "make an implementation plan" or work requires multiple distinct phases. Outputs a local IMPLEMENTATION_PLAN_<feature-name>.md file with phases, tasks, quality gates (code review, tests, linter, type checker), and status tracking. For restructuring existing code without changing behavior, use plan-refactor instead.
 ---
 
 # Implementation Plan
@@ -385,7 +377,7 @@ When creating and working with plans:
   `feat(auth): Implement Phase 2 - Authentication service`
 - Commit plan updates along with code changes
 
-**Use with code-review skill:**
+**Use with review-code skill:**
 
 - Review each phase's changes before marking complete
 - Quality gates include code review checkpoint

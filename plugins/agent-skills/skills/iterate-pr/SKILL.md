@@ -1,448 +1,190 @@
 ---
 name: iterate-pr
-description:
-  Iterate on a PR until CI passes and feedback is addressed. Use when fixing CI
-  failures, addressing review comments, or continuously improving a PR until all
-  checks are green. Automates the feedback-fix-push cycle.
+description: Iterate on a PR until CI passes. Use when you need to fix CI failures, address review feedback, or continuously push fixes until all checks are green. Automates the feedback-fix-push-wait cycle.
 ---
 
 # Iterate on PR Until CI Passes
 
 Continuously iterate on the current branch until all CI checks pass and review feedback is addressed.
 
-**Requires**: GitHub CLI (`gh`) authenticated and available.
+**Requires**: GitHub CLI (`gh`) authenticated.
 
-## Core Principles
+**Requires**: The `uv` CLI for python package management, install guide at https://docs.astral.sh/uv/getting-started/installation/
 
-- **Be systematic**: Check CI, gather feedback, fix issues, repeat
-- **Be targeted**: Only fix actual issues, don't over-engineer
-- **Be efficient**: Wait for bots before addressing feedback
-- **Be persistent**: Keep iterating until all checks pass
-- **Communicate**: Comment on PR when pushing significant updates
+**Important**: All scripts must be run from the repository root directory (where `.git` is located), not from the skill directory. Use the full path to the script via `${CLAUDE_SKILL_ROOT}`.
 
-## Change Discipline
+## Bundled Scripts
 
-- Write absolute minimum code required
-- No sweeping changes
-- No unrelated edits
-- Stay focused on the specific task
-- Don't break existing functionality without asking
+### `scripts/fetch_pr_checks.py`
 
-## Investigation Approach
-
-When CI fails or issues arise:
-
-1. List 5-7 possible causes from the logs and context
-2. Gather evidence for each (check related code, tests, similar issues)
-3. Narrow to 1-2 most likely causes based on evidence
-4. Validate assumptions (run tests locally, add logging, inspect code)
-5. Only then implement the fix
-
-This prevents guess-and-check cycles and wasted iterations.
-
-## Process Overview
-
-```
-1. Identify PR
-2. Check CI status
-3. Wait for bots if still pending
-4. Gather review feedback
-5. Investigate failures
-6. Validate feedback
-7. Make targeted fixes
-8. Commit and push
-9. Wait for CI
-10. Repeat if needed
-```
-
-## Step-by-Step Process
-
-### Step 1: Identify the PR
+Fetches CI check status and extracts failure snippets from logs.
 
 ```bash
-gh pr view --json number,url,headRefName,baseRefName,title
+uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_checks.py [--pr NUMBER]
 ```
 
-**Verify:**
-- PR exists for current branch
-- You're on the correct branch
-- PR is not closed or merged
-
-**If no PR exists:** Stop and inform the user to create one first.
-
-### Step 2: Check CI Status
-
-Always check CI status before doing anything else:
-
-```bash
-gh pr checks --json name,state,bucket,link,workflow
+Returns JSON:
+```json
+{
+  "pr": {"number": 123, "branch": "feat/foo"},
+  "summary": {"total": 5, "passed": 3, "failed": 2, "pending": 0},
+  "checks": [
+    {"name": "tests", "status": "fail", "log_snippet": "...", "run_id": 123},
+    {"name": "lint", "status": "pass"}
+  ]
+}
 ```
 
-**Understanding bucket values:**
-- `pass` - Check passed
-- `fail` - Check failed
-- `pending` - Still running
-- `skipping` - Skipped (not required)
-- `cancel` - Cancelled
+### `scripts/fetch_pr_feedback.py`
 
-**If all checks pass:** Move to Step 3 to check for review feedback.
+Fetches and categorizes PR review feedback using the LOGAF scale (high/medium/low/bot/resolved).
 
-**If checks are pending:** Wait for them to complete (see Step 9).
-
-**If checks failed:** Continue to Step 4 to investigate.
-
-### Step 3: Wait for Bot Checks
-
-Before addressing feedback, wait for these bots if they're still `pending`:
-
-- `codecov` - Code coverage reporting
-- `cursor` / `bugbot` / `seer` - Code analysis bots
-- Linters (eslint, pylint, etc.)
-- Security scanners
-
-**Why wait?** These bots often post additional review comments after their checks complete. Waiting avoids duplicate work.
-
-**How to wait:**
 ```bash
-gh pr checks --watch --interval 30
+uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_feedback.py [--pr NUMBER]
 ```
 
-### Step 4: Gather Review Feedback
+Returns JSON with feedback categorized as:
+- `high` - Must address before merge (`h:`, blocker, changes requested)
+- `medium` - Should address (`m:`, standard feedback)
+- `low` - Optional (`l:`, nit, style, suggestion)
+- `bot` - Informational automated comments (Codecov, Dependabot, etc.)
+- `resolved` - Already resolved threads
 
-Once bot checks complete, gather all feedback:
+Review bot feedback (from Warden, Cursor, Bugbot, CodeQL, etc.) appears in `high`/`medium`/`low` with `review_bot: true` — it is NOT placed in the `bot` bucket.
 
-**Review comments and status:**
+### `scripts/reply_to_thread.py`
+
+Replies to PR review threads in a single batched GraphQL mutation.
+
 ```bash
-gh pr view --json reviews,comments,reviewDecision
+uv run ${CLAUDE_SKILL_ROOT}/scripts/reply_to_thread.py THREAD_ID "body" [THREAD_ID "body" ...]
 ```
 
-**Inline code review comments:**
+## Workflow
+
+### 1. Identify PR
+
 ```bash
-gh api repos/{owner}/{repo}/pulls/{pr_number}/comments
+gh pr view --json number,url,headRefName
 ```
 
-**PR conversation comments (includes bot feedback):**
-```bash
-gh api repos/{owner}/{repo}/issues/{pr_number}/comments
+Stop if no PR exists for the current branch.
+
+### 2. Gather Review Feedback
+
+Run `${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_feedback.py` to get categorized feedback already posted on the PR.
+
+### 3. Handle Feedback by LOGAF Priority
+
+**Auto-fix (no prompt):**
+- `high` - must address (blockers, security, changes requested)
+- `medium` - should address (standard feedback)
+
+When fixing feedback:
+- Understand the root cause, not just the surface symptom
+- Check for similar issues in nearby code or related files
+- Fix all instances, not just the one mentioned
+
+This includes review bot feedback (items with `review_bot: true`). Treat it the same as human feedback:
+- Real issue found → fix it
+- False positive → skip, but explain why
+- Never silently ignore review bot feedback — always verify the finding
+
+**Prompt user for selection:**
+- `low` - present numbered list and ask which to address:
+
+```
+Found 3 low-priority suggestions:
+1. [l] "Consider renaming this variable" - @reviewer in api.py:42
+2. [nit] "Could use a list comprehension" - @reviewer in utils.py:18
+3. [style] "Add a docstring" - @reviewer in models.py:55
+
+Which would you like to address? (e.g., "1,3" or "all" or "none")
 ```
 
-**Organize feedback:**
-- Group by type: CI failures, human reviews, bot suggestions
-- Prioritize: CI failures first, then blocking reviews, then suggestions
-- Note which issues are related
+**Skip silently:**
+- `resolved` threads
+- `bot` comments (informational only — Codecov, Dependabot, etc.)
 
-### Step 5: Investigate CI Failures
+### 4. Check CI Status
 
-For each CI failure, get the actual logs:
+Run `${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_checks.py` to get structured failure data.
 
-```bash
-# List recent runs for this branch
-gh run list --branch $(git branch --show-current) --limit 5 --json databaseId,name,status,conclusion
+**Wait if pending:** If review bot checks (warden, cursor, bugbot, seer, codeql) are still running, wait before proceeding—they post actionable feedback that must be evaluated. Informational bots (codecov) are not worth waiting for.
 
-# View logs for a specific run
-gh run view <run-id> --log-failed
+### 5. Fix CI Failures
 
-# Or see all job steps
-gh run view <run-id> --verbose
-```
+**Investigation is mandatory before any fix.** Do not guess, assume, or infer the cause from the check name or a surface-level reading of the error. You must trace the failure to its root cause in the actual code.
 
-**Important:** Always read the actual error logs. Don't assume what failed based on the check name alone.
+For each failure:
 
-**Look for:**
-- Exact error messages and stack traces
-- Which test or step failed
-- Line numbers of failures
-- Whether it's a flaky test (passes sometimes)
+1. **Read the full log, not just the snippet.** Use `gh run view <run-id> --log-failed` if the snippet is truncated or ambiguous. Identify the exact failing assertion, exception, or lint rule.
+2. **Trace backwards from the failure to the cause.** Follow the stack trace or error message into the source code. Read the relevant functions, types, and call sites — not just the line flagged. Do not stop at the first plausible explanation.
+3. **Verify your understanding before touching code.** You should be able to state: "This fails because X, which was introduced/affected by Y." If you cannot state that clearly, keep investigating.
+4. **Do not assume the feedback is wrong.** If a check flags something that seems incorrect, investigate fully before concluding it's a false positive. Most apparent false positives turn out to be real issues on closer inspection.
+5. **Check for related instances.** If a type error, import issue, or logic bug exists at one call site, search for the same pattern in nearby code and related files. Fix all instances.
+6. **Fix the root cause with minimal, targeted changes.** Do not paper over the symptom with a workaround.
+7. **Extend tests when needed.** If the fix introduces behavior not covered by existing tests, add a test case (not a whole new test file).
 
-### Step 6: Validate Feedback
+### 6. Verify Locally, Then Commit via the `commit` skill
 
-Before fixing, verify each issue:
+Before committing, verify your fixes locally:
+- If you fixed a test failure: re-run that specific test locally
+- If you fixed a lint/type error: re-run the linter or type checker on affected files
+- For any code fix: run existing tests covering the changed code
 
-1. Read the relevant code using Read tool
-2. Confirm the issue is real (not false positive, already fixed, or out of scope)
-3. Determine if it must be fixed in this PR
-4. Skip invalid or out-of-scope feedback
+If local verification fails, fix before proceeding — do not push known-broken code.
 
-### Step 7: Make Targeted Fixes
-
-Fix only the specific issue - no refactoring, no extra features, minimal changes.
-
-**Approach by type:**
-- **Tests**: Read test + code, fix logic or update test expectation
-- **Types**: Fix properly, don't cast to `any`
-- **Linter**: Use auto-fix (`npm run lint -- --fix`) or edit using Edit tool
-- **Security**: Fix properly and add tests
-- **Review**: Address concern or explain why not (ask if unclear)
-
-### Step 8: Commit and Push
-
-Follow commit message conventions from the commit skill:
+**Hand off to the `commit` skill to create the commit.** Do not craft commit messages inline — invoke the `commit` skill so message conventions (type prefix, character limits, AI attribution rules) are applied consistently. Then push:
 
 ```bash
-git add <files>
-git commit -m "fix(scope): Brief description of what was fixed"
 git push
 ```
 
-**Commit message guidelines:**
-- Use `fix:` prefix for bug fixes
-- Be specific about what was fixed
-- Reference issue if applicable
-- Keep under 72 characters
+### 7. Monitor CI and Address Feedback
 
-**Examples:**
-```bash
-git commit -m "fix(tests): Update user factory for new schema"
-git commit -m "fix(api): Add null check in profile endpoint"
-git commit -m "fix(lint): Remove unused imports"
-```
+Poll CI status and review feedback in a loop instead of blocking:
 
-**Add PR comment for significant changes:**
-```bash
-gh pr comment --body "Fixed test failures by updating user factory for new schema changes. All tests now pass locally."
-```
+1. Run `uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_checks.py` to get current CI status
+2. If all checks passed → proceed to exit conditions
+3. If any checks failed (none pending) → return to step 5
+4. If checks are still pending:
+   a. Run `uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_feedback.py` for new review feedback
+   b. Address any new high/medium feedback immediately (same as step 3)
+   c. If changes were needed, commit via the `commit` skill and push (this restarts CI), then continue polling
+   d. Sleep 30 seconds (don't increase on subsequent iterations), then repeat from sub-step 1
+5. After all checks pass, do a final feedback check: `sleep 10`, then run `uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_feedback.py`. Address any new high/medium feedback — if changes are needed, return to step 6.
 
-### Step 9: Wait for CI
+### 8. Repeat
 
-Use the watch functionality to wait for checks:
-
-```bash
-gh pr checks --watch --interval 30
-```
-
-**This command:**
-- Polls checks every 30 seconds
-- Exits with code 0 if all pass
-- Exits with code 1 if any fail
-- Shows progress as checks complete
-
-**Alternative - manual polling:**
-```bash
-# See only non-passing checks
-gh pr checks --json name,state,bucket | jq '.[] | select(.bucket != "pass")'
-
-# Focus on required checks only
-gh pr checks --required
-```
-
-**While waiting:**
-- Don't make additional changes
-- Don't push new commits
-- Wait for all checks to complete
-
-### Step 10: Repeat If Needed
-
-**Return to Step 2 if:**
-- Any CI checks failed
-- New review feedback appeared
-- Requested changes need addressing
-
-**Continue iterating until:**
-- All CI checks are green (`bucket: pass`)
-- All blocking review feedback is addressed
-- No new issues appear
+If step 7 required code changes (from new feedback after CI passed), return to step 2 for a fresh cycle. CI failures during monitoring are already handled within step 7's polling loop.
 
 ## Exit Conditions
 
-### Success - Stop Iterating
+**Success:** All checks pass, post-CI feedback re-check is clean (no new unaddressed high/medium feedback including review bot findings), user has decided on low-priority items.
 
-✓ All CI checks pass
-✓ All blocking review feedback addressed
-✓ No new failures introduced
-✓ PR is ready for merge
+**Ask for help:** Same failure after 2 attempts, feedback needs clarification, infrastructure issues.
 
-**Report to user:**
-```
-All CI checks passing. PR is ready for review/merge.
+**Stop:** No PR exists, branch needs rebase.
 
-Final status:
-- ✓ Tests passing
-- ✓ Lint checks passing
-- ✓ Coverage meets threshold
-- ✓ All review feedback addressed
-```
+## When scripts fail
 
-### Ask for Help - Stop and Request Input
+The bundled scripts are a convenience — the workflow still works without them. If a script fails, fall back to `gh` CLI directly rather than aborting.
 
-Stop and ask user when:
+### `uv` not installed
 
-- **Same failure after 3 attempts**: Likely flaky test or deeper issue
-- **Unclear review feedback**: Requires clarification or decision
-- **Conflicting feedback**: Multiple reviewers want different things
-- **Out of scope**: Request is beyond PR's intended changes
-- **Infrastructure issue**: CI failure unrelated to code changes
+Install `uv` (https://docs.astral.sh/uv/getting-started/installation/) or fall back to raw `gh` commands:
 
-**Example:**
-```
-CI failure persists after 3 attempts fixing test_user_login.
+- Check status: `gh pr checks --json name,state,bucket,link`
+- Failed logs: `gh run list --branch $(git branch --show-current) --limit 5 --json databaseId,name,status,conclusion` then `gh run view <run-id> --log-failed`
+- Review threads: `gh api repos/{owner}/{repo}/pulls/{pr}/comments` and `gh api repos/{owner}/{repo}/issues/{pr}/comments`
 
-The test fails intermittently with "Database connection timeout."
-This appears to be a flaky test or infrastructure issue, not a code problem.
+When using `gh` directly, categorize feedback manually — look for `h:`/`m:`/`l:` markers and words like "must fix", "blocker", "nit", "style".
 
-Should I:
-1. Skip/disable this test?
-2. Investigate further?
-3. Wait for infrastructure team?
-```
+### Script runtime errors
 
-### Stop Immediately - Cannot Continue
+Network blips, GitHub API rate limits, or transient auth hiccups will surface as non-zero exits. Retry once after a short delay. If the second attempt fails, fall back to raw `gh` commands above rather than looping.
 
-- **No PR exists**: User needs to create PR first
-- **Branch out of sync**: Needs rebase or merge from base branch
-- **PR is closed/merged**: Cannot push to closed PR
-- **No write access**: Permissions issue
+### Parsing errors
 
-## Common CI Failures and Fixes
-
-### Test Failures
-
-**Symptom:**
-```
-FAILED tests/test_user.py::test_create_user - AssertionError
-Expected: "john@example.com"
-Got: None
-```
-
-**Fix:**
-- Read the test code
-- Understand what behavior changed
-- Fix the code or update test expectation
-- Run tests locally to verify
-
-### Type Errors
-
-**Symptom:**
-```
-src/api/user.py:45: error: Argument 1 to "get_profile" has incompatible type "str"; expected "int"
-```
-
-**Fix:**
-- Check function signature
-- Convert types properly (don't cast to `any`)
-- Add proper type annotations
-
-### Linter Errors
-
-**Symptom:**
-```
-src/utils.py:23:1: E302 expected 2 blank lines, found 1
-src/api.py:45:80: E501 line too long (85 > 79 characters)
-```
-
-**Fix:**
-```bash
-# Auto-fix if possible
-npm run lint -- --fix
-ruff check --fix .
-black .
-
-# Or edit the files directly using Edit tool
-```
-
-## Tool Usage
-
-- **Use `gh pr view`** to get PR details and reviews
-- **Use `gh pr checks`** to see CI status
-- **Use `gh run view`** to read CI logs
-- **Use `gh pr comment`** to add comments when pushing updates
-- **Use Read tool** to examine files mentioned in feedback
-- **Use Grep tool** to search for patterns causing failures
-- **Use TodoWrite tool** to track which issues are fixed/pending
-
-## Using TodoWrite for Iteration
-
-Track your progress through the iteration:
-
-```
-[pending] Fix test_user_login failure
-[in_progress] Address review feedback on auth.py
-[pending] Fix type errors in api.py
-[pending] Update docstrings per review
-```
-
-Mark as completed as you fix each issue. This helps track progress through multiple iterations.
-
-## Common Mistakes to Avoid
-
-| Mistake                 | Avoid                           | Do Instead                       |
-| ----------------------- | ------------------------------- | -------------------------------- |
-| Over-fixing             | Fix unrelated code              | Only fix the specific issue      |
-| Ignoring feedback       | Dismiss reviewer comments       | Address or discuss each point    |
-| Unverified pushes       | Push without local testing      | Verify locally first             |
-| Bundling changes        | Multiple unrelated fixes in one | Separate commits for each fix    |
-| Giving up early         | Stop after first failure        | Investigate logs thoroughly      |
-
-## Communication
-
-When pushing significant changes, add a concise PR comment:
-
-```bash
-gh pr comment --body "Fixed null check per @reviewer and added test coverage. All checks passing locally."
-```
-
-Keep it brief (1-2 sentences or 3-5 bullets). Don't repeat commit messages or over-explain.
-
-## Tips
-
-**Focus on required checks:**
-```bash
-gh pr checks --required
-```
-
-**See external check links:**
-```bash
-gh pr checks --json name,link
-```
-
-**Watch specific workflow:**
-```bash
-gh run watch <run-id>
-```
-
-**Re-run failed checks (if permissions allow):**
-```bash
-gh run rerun <run-id> --failed
-```
-
-**Get check details programmatically:**
-```bash
-# View logs for failed checks
-gh run view <run-id> --log-failed
-
-# Get structured check data
-gh pr checks --json name,state,conclusion
-```
-
-## Iteration Example
-
-**Iteration 1:**
-- CI Status: 2 checks failing (tests, lint)
-- Read logs: test_user_login fails, 3 lint errors
-- Fix test by updating user factory
-- Fix lint with auto-formatter
-- Commit: "fix: Update user factory and fix lint errors"
-- Push and wait for CI
-
-**Iteration 2:**
-- CI Status: All checks pass
-- New review feedback: "Add null check in line 45"
-- Read code, verify issue is real
-- Add null check with test
-- Commit: "fix(api): Add null check in profile endpoint"
-- Comment: "Added null check per @reviewer, includes test coverage"
-- Push and wait for CI
-
-**Iteration 3:**
-- CI Status: All checks pass
-- No new feedback
-- Success! Report completion to user
-
-## Summary
-
-The iterate-pr skill automates the feedback loop:
-1. Check what's broken
-2. Fix it
-3. Push and wait
-4. Repeat until green
-
-Be systematic, targeted, and persistent. Most PRs need 1-3 iterations to pass all checks.
+If a script returns malformed JSON or unexpected output, emit the raw output to the user unprocessed — do not silently continue with an empty/default value. Treat parsing errors as a signal to switch to the `gh` CLI fallback.
