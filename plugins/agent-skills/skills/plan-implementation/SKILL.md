@@ -377,7 +377,7 @@ When creating and working with plans:
   `feat(auth): Implement Phase 2 - Authentication service`
 - Commit plan updates along with code changes
 
-**Use with code-review skill:**
+**Use with review-code skill:**
 
 - Review each phase's changes before marking complete
 - Quality gates include code review checkpoint
