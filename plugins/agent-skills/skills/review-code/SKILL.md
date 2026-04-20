@@ -27,7 +27,7 @@ Before flagging anything:
 4. Validate — read the code, don't speculate.
 5. Only then write findings.
 
-This prevents guess-and-check review cycles.
+This prevents guess-and-check review cycles. Don't stop at the first plausible issue per category — the obvious one is often not the real one.
 
 ## What to flag
 
