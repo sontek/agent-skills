@@ -82,8 +82,7 @@ Run `${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_feedback.py` to get categorized feedb
 
 When fixing feedback:
 - Understand the root cause, not just the surface symptom
-- Check for similar issues in nearby code or related files
-- Fix all instances, not just the one mentioned
+- If the same logical error appears in multiple places, fix all of them — not just the one the reviewer flagged
 
 This includes review bot feedback (items with `review_bot: true`). Treat it the same as human feedback:
 - Real issue found → fix it
@@ -122,7 +121,7 @@ For each failure:
 2. **Trace backwards from the failure to the cause.** Follow the stack trace or error message into the source code. Read the relevant functions, types, and call sites — not just the line flagged. Do not stop at the first plausible explanation.
 3. **Verify your understanding before touching code.** You should be able to state: "This fails because X, which was introduced/affected by Y." If you cannot state that clearly, keep investigating.
 4. **Do not assume the feedback is wrong.** If a check flags something that seems incorrect, investigate fully before concluding it's a false positive. Most apparent false positives turn out to be real issues on closer inspection.
-5. **Check for related instances.** If a type error, import issue, or logic bug exists at one call site, search for the same pattern in nearby code and related files. Fix all instances.
+5. **If the same logical error appears in multiple places, fix all of them.** A type error, import issue, or logic bug at one call site usually repeats — search nearby code and related files for the same pattern and fix every instance, not just the one the check flagged.
 6. **Fix the root cause with minimal, targeted changes.** Do not paper over the symptom with a workaround.
 7. **Extend tests when needed.** If the fix introduces behavior not covered by existing tests, add a test case (not a whole new test file).
 

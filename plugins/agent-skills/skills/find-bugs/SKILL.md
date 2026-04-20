@@ -182,6 +182,8 @@ Before finalizing your findings, you MUST explicitly:
 
 This step is not optional — it forces the check-every-item discipline that prevents confident "looks clean" reports on code you only skimmed. If you cannot complete the audit, say so explicitly rather than hiding the gap.
 
+If the audit surfaces a file you only skimmed or a category you didn't check, go back and complete it before reporting — partial coverage is not coverage.
+
 ### Step 6: Report Findings
 
 Be concise and accurate. Don't invent issues.
