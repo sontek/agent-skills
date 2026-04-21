@@ -65,7 +65,8 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 
 | Skill | Description |
 | --- | --- |
-| [review-code](plugins/agent-skills/skills/review-code/SKILL.md) | Prioritized code review (P0-P3) with fail-fast error-handling rubric |
+| [review-code](plugins/agent-skills/skills/review-code/SKILL.md) | Prioritized code review (P0-P3) with fail-fast error-handling rubric; `branch` mode (diff vs. main) or `paths` mode (explicit file list) |
+| [auto-review](plugins/agent-skills/skills/auto-review/SKILL.md) | Loop `review-code` and `simplify` until no safe fixes remain; batches risky changes for a single end-of-run approval pass |
 | [review-security](plugins/agent-skills/skills/review-security/SKILL.md) | OWASP-aligned security review with confidence-based reporting |
 | [review-django-access](plugins/agent-skills/skills/review-django-access/SKILL.md) | Django/DRF IDOR and access-control review |
 | [review-django-perf](plugins/agent-skills/skills/review-django-perf/SKILL.md) | Django performance review (N+1, unbounded queries, missing indexes) |

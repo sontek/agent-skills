@@ -1,15 +1,25 @@
 ---
 name: review-code
-description: Perform code reviews with prioritized, actionable findings. Use when reviewing pull requests, examining code changes, or providing feedback on code quality. Covers correctness, performance, security, design, testing, and cross-cutting concerns.
+description: Perform code reviews with prioritized, actionable findings. Use when reviewing pull requests, examining code changes, or providing feedback on code quality. Supports two modes — `branch` (default, reviews diff vs. main) and `paths` (reviews an explicit file/dir list as-is, ignoring git history). Covers correctness, performance, security, design, testing, and cross-cutting concerns.
 ---
 
 # Review Code
 
-You are acting as a code reviewer for a proposed code change. Your job is to flag issues that matter, skip issues that don't, and produce output the author can act on immediately.
+You are acting as a code reviewer. Your job is to flag issues that matter, skip issues that don't, and produce output the author can act on immediately.
+
+## Modes
+
+Pick one before starting. If the invoker didn't specify, default to `branch`.
+
+- **`branch` (default)** — Review the current branch's changes vs. the main branch. Only flag issues introduced by the diff; don't flag pre-existing code that wasn't touched. Include the Human Reviewer Callouts section in output.
+- **`paths`** — Review the current state of an explicit list of files or directories, regardless of git history. Flag any issue in the reviewed code. Omit the Human Reviewer Callouts section entirely (there's no "change" to call out). Requires an explicit path list from the invoker — do not default to whole-repo.
+
+The rules below apply to both modes unless noted.
 
 ## Change discipline (for your review)
 
-- Stay in the scope of the diff. Don't flag pre-existing code that wasn't touched.
+- In `branch` mode: stay in the scope of the diff. Don't flag pre-existing code that wasn't touched.
+- In `paths` mode: stay in the scope of the provided paths. Don't wander into files that weren't listed.
 - Don't propose sweeping refactors. Don't demand rigor inconsistent with the rest of the codebase.
 - Phrase findings as discrete, actionable items — not general critiques.
 
@@ -36,7 +46,7 @@ Flag issues that:
 1. Meaningfully impact **correctness, performance, security, or maintainability**.
 2. Are discrete and actionable (not general issues or bundled).
 3. Don't demand rigor inconsistent with the rest of the codebase.
-4. Were introduced in the changes being reviewed (not pre-existing bugs).
+4. In `branch` mode: were introduced in the changes being reviewed (not pre-existing bugs). In `paths` mode: exist in the reviewed code, regardless of when they were introduced.
 5. The author would likely fix if aware of them.
 6. Don't rely on unstated assumptions about the codebase or author's intent.
 7. Have provable impact on other parts of the code — identify the affected parts; don't just speculate.
@@ -164,9 +174,9 @@ Changes that need senior review attention:
 #### [P2] Brief title
 ...
 
-### Human Reviewer Callouts (Non-Blocking)
+### Human Reviewer Callouts (Non-Blocking) — `branch` mode only
 
-Include only applicable callouts; omit the section entirely if none apply:
+Omit this entire section in `paths` mode. In `branch` mode, include only applicable callouts; omit the section entirely if none apply:
 
 - **This change adds a database migration:** <files/details>
 - **This change introduces a new dependency:** <package(s)/details>
@@ -180,12 +190,13 @@ Include only applicable callouts; omit the section entirely if none apply:
 
 Rules for the Callouts section:
 
-1. Informational for the human reviewer, not fix items.
-2. Do not include them as Findings unless there's an independent defect.
-3. These callouts alone must not change the verdict.
-4. Only include callouts that apply to the reviewed change.
-5. Keep each emitted callout bold exactly as written.
-6. If none apply, omit the section header entirely.
+1. Only emit in `branch` mode — skip entirely in `paths` mode.
+2. Informational for the human reviewer, not fix items.
+3. Do not include them as Findings unless there's an independent defect.
+4. These callouts alone must not change the verdict.
+5. Only include callouts that apply to the reviewed change.
+6. Keep each emitted callout bold exactly as written.
+7. If none apply, omit the section header entirely.
 
 ## Common patterns to flag
 
