@@ -45,6 +45,39 @@ Otherwise: add to the **flagged-for-approval** bucket and continue the loop. Ove
 
 Any P0 finding stops the loop immediately. Do not auto-apply. Show the finding to the user and wait for direction. P0 means "drop everything, blocking" — it deserves a thinking pass, not a reflex fix.
 
+## Test-first for testable fixes
+
+Most correctness and behavior findings can be captured in a regression test. Prefer writing the test BEFORE applying the fix — this proves the finding is real, proves the fix addresses it, and locks in the repair against future regression. Without this step, we fix bugs that can silently come back.
+
+**Testable (prefer TDD):**
+- Correctness — null/undefined access, off-by-one, wrong operator, inverted conditions, missing await, race conditions
+- Security — injection, broken access control, IDOR (scope an integration test to the vulnerable endpoint)
+- Performance — N+1 queries (assert query count), unbounded loops (assert bounded behavior)
+- Behavior changes — validation, error handling, edge cases
+
+**Not cleanly testable (apply directly, no test needed):**
+- Simplifications and behavior-preserving refactors — existing tests guard
+- Dead code, unused imports, redundant wrappers
+- Naming, comments, style, formatting
+- Documentation-only changes
+
+**TDD workflow for testable fixes:**
+
+1. Locate the appropriate test file. Prefer adding a case to an existing test file over creating a new one. If no tests cover the area, create a new test file alongside the code following the repo's test layout.
+2. Write a test that reproduces the finding and should currently fail.
+3. Run the test. Confirm it fails for the expected reason.
+   - If it unexpectedly passes, the finding may be wrong — skip the fix and move the finding to `flag-for-approval` with a note ("test written but passed unchanged — verify finding").
+4. Apply the fix.
+5. Run the new test. Confirm it passes. Also run the containing test file to catch regressions in nearby cases.
+6. If either run fails, revert both the fix and the test, and flag the finding for approval.
+
+**When test infrastructure isn't available or slow:**
+- No test framework detected (no `pytest`, `jest`, `go test`, `cargo test`, etc.): apply directly; log the finding with `testable: infra-missing` so the user sees the gap.
+- Tests exist but are prohibitively slow (single test file takes >60s): apply directly; log `testable: infra-slow`. Do not skip TDD because it's inconvenient — only because it's actually blocked.
+- Finding is in test code itself: apply directly (no meta-test needed).
+
+Do NOT spend time standing up test infrastructure inside the loop. That's a separate decision for the user.
+
 ## Loop structure
 
 For each round (cap at 5):
@@ -52,8 +85,8 @@ For each round (cap at 5):
 1. **Review phase.** Run the `review-code` skill in the configured mode. Capture all findings with fingerprints (see below).
 2. **Triage findings.** For each finding, classify as: `p0-halt`, `auto-apply`, or `flag-for-approval`. If any `p0-halt`, escalate immediately and exit the loop.
 3. **Check oscillation.** For each `auto-apply` candidate, check if the same fingerprint was already auto-applied in a previous round. If yes, move it to `flag-for-approval` with a note ("oscillation: applied in round N, re-flagged in round M") — do not apply again.
-4. **Apply review fixes.** Apply each `auto-apply` fix one at a time. After each fix, run any cheap local verification available (type check, lint, or tests if fast) before the next fix. If verification fails, revert that fix and flag it.
-5. **Simplify phase.** Run the `simplify` skill against the same scope. Triage its findings with the same policy and oscillation check. Apply auto-apply fixes one at a time with the same verification.
+4. **Apply review fixes.** For each `auto-apply` fix, classify as testable or not (see "Test-first for testable fixes"). For testable fixes, write the failing test first, confirm it fails, apply the fix, confirm it passes. For non-testable fixes, apply directly. After each fix, run any cheap local verification available (type check, lint). If verification or the new test fails, revert both the fix and the test, and flag the finding.
+5. **Simplify phase.** Run the `simplify` skill against the same scope. Triage its findings with the same policy and oscillation check. Simplify findings are usually non-testable refactors — apply directly, relying on existing tests as the regression guard. If a simplify finding changes behavior rather than preserving it, treat it as testable and TDD it.
 6. **Log the round** to `.claude/auto-review-log.md` (see format below).
 7. **Check exit conditions.**
 
@@ -94,16 +127,16 @@ Started: 2026-04-21T10:03:12Z
 ## Round 1 — review-code
 
 - [P2] src/api/users.py:42 | quality | dead-import
-  - action: auto-applied
+  - action: auto-applied (non-testable: quality)
 - [P1] src/api/users.py:118 | correctness | missing-await
-  - action: auto-applied
+  - action: auto-applied (test: tests/api/test_users.py::test_fetch_awaits_db_call — added, failed before, passes after)
 - [P1] src/api/*.py | design | unify-error-handling-across-views
   - action: flagged (touches 12 files — exceeds local threshold)
 
 ## Round 1 — simplify
 
 - src/api/users.py:60 | simplify | redundant-wrapper
-  - action: auto-applied
+  - action: auto-applied (non-testable: refactor — relying on existing tests)
 
 ## Round 2 — review-code
 
@@ -127,8 +160,11 @@ After the loop exits, output a single summary. This is the only user-facing outp
 
 **Auto-applied (3):**
 - [P2] src/api/users.py:42 — removed dead import
-- [P1] src/api/users.py:118 — added missing await
+- [P1] src/api/users.py:118 — added missing await (+ regression test: `tests/api/test_users.py::test_fetch_awaits_db_call`)
 - src/api/users.py:60 — flattened redundant wrapper (simplify)
+
+**Regression tests added:** 1
+**Testable fixes applied without tests (infra missing or slow):** 0
 
 **Flagged for approval (1):**
 
