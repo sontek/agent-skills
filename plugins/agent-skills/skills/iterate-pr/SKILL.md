@@ -83,6 +83,7 @@ Run `${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_feedback.py` to get categorized feedb
 When fixing feedback:
 - Understand the root cause, not just the surface symptom
 - If the same logical error appears in multiple places, fix all of them — not just the one the reviewer flagged
+- **Test-first for testable findings.** For bugs, security gaps, performance regressions, or behavior changes, write a regression test BEFORE the fix. Confirm it fails without the fix, apply the fix, confirm it passes. If the new test unexpectedly passes without the fix, the feedback may be wrong — reply to clarify rather than silently skipping. Non-testable findings (naming, style, dead code, behavior-preserving refactors) apply directly — existing tests guard regressions.
 
 This includes review bot feedback (items with `review_bot: true`). Treat it the same as human feedback:
 - Real issue found → fix it
@@ -123,7 +124,7 @@ For each failure:
 4. **Do not assume the feedback is wrong.** If a check flags something that seems incorrect, investigate fully before concluding it's a false positive. Most apparent false positives turn out to be real issues on closer inspection.
 5. **If the same logical error appears in multiple places, fix all of them.** A type error, import issue, or logic bug at one call site usually repeats — search nearby code and related files for the same pattern and fix every instance, not just the one the check flagged.
 6. **Fix the root cause with minimal, targeted changes.** Do not paper over the symptom with a workaround.
-7. **Extend tests when needed.** If the fix introduces behavior not covered by existing tests, add a test case (not a whole new test file).
+7. **Test-first for behavioral fixes.** For CI failures in existing tests, the failing test is already your TDD signal — fix the code, then confirm the test passes. For fixes that change runtime behavior but aren't yet covered (a lint rule catching a real bug, a missing edge case, a fix that uncovers an untested branch), write the regression test BEFORE the fix: confirm it fails, apply the fix, confirm it passes. Add the case to the nearest existing test file; don't create a whole new file. Pure style / lint / type / formatting fixes don't need tests.
 
 ### 6. Verify Locally, Then Commit via the `commit` skill
 
