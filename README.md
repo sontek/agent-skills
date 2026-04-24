@@ -81,6 +81,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [plan-implementation](plugins/agent-skills/skills/plan-implementation/SKILL.md) | Structured plan for NEW features (writes `IMPLEMENTATION_PLAN_*.md`) |
 | [plan-refactor](plugins/agent-skills/skills/plan-refactor/SKILL.md) | Tiny-commit refactor plan (writes `REFACTOR_PLAN_*.md`) |
 | [review-plan](plugins/agent-skills/skills/review-plan/SKILL.md) | Route an existing plan (file or plan-mode draft) through `senior-engineer` and `product-manager` for a judgment pass |
+| [auto-review-plan](plugins/agent-skills/skills/auto-review-plan/SKILL.md) | Loop `review-plan` and auto-apply small blocking edits until the plan is clean; flags structural recommendations for end-of-run approval |
 | [improve-architecture](plugins/agent-skills/skills/improve-architecture/SKILL.md) | Find architectural friction and design module-deepening refactors |
 
 ### Meta
