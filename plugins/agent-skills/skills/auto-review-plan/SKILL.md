@@ -47,7 +47,6 @@ There is no file to edit — hold the working plan text in conversation state. E
 At exit, emit the final revised plan text as part of the user summary so the user can paste it back into plan mode (or accept it as the working plan). Do not persist the in-conversation plan to a file unless the user asks.
 
 If neither a file nor a recent in-conversation plan exists, stop and tell the user to create one first (via `plan-implementation` or `plan-refactor`), or to paste/point at one. Do not invent a plan.
-3. **No file found.** Stop and tell the user to create the plan first (via `plan-implementation` or `plan-refactor`), or to pass a path. Do not invent a plan file.
 
 ## Auto-apply policy
 
@@ -71,7 +70,7 @@ If `review-plan` returns a verdict of `Rethink approach`, stop the loop immediat
 
 For each round (cap at 3):
 
-1. **Review phase.** Invoke the `review-plan` skill against the target plan file. Capture all findings with fingerprints (see below) and the returned verdict.
+1. **Review phase.** Invoke the `review-plan` skill against the target plan (file path for file-based runs, inline text for in-conversation runs). Capture all findings with fingerprints (see below) and the returned verdict.
 2. **Check verdict.** If verdict is `Rethink approach`, hard-stop and exit to the user.
 3. **Triage findings.** For each finding, classify as: `auto-apply` or `flag-for-approval` per the policy above.
 4. **Check oscillation.** For each `auto-apply` candidate, check if the same fingerprint was already auto-applied in a previous round. If yes, move it to `flag-for-approval` with a note ("oscillation: applied in round N, re-flagged in round M") — do not apply again. If the same fingerprint oscillates twice, exit the loop immediately.
@@ -145,7 +144,7 @@ After the loop exits, output a single summary. This is the only user-facing outp
 ```markdown
 ## Auto-review-plan complete
 
-**Target:** IMPLEMENTATION_PLAN_checkout-redesign.md
+**Target:** IMPLEMENTATION_PLAN_checkout-redesign.md  *(or: `plan-mode draft — "Checkout Redesign"`)*
 **Rounds:** 2 (converged) | **Final verdict:** Ready to implement
 
 **Auto-applied (2):**
