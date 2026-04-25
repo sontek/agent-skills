@@ -7,7 +7,7 @@ description: Automatically iterate review-plan against a plan until no safe bloc
 
 Loop: `review-plan` → auto-apply safe plan edits, repeat until convergence or escalation. Collects structural recommendations into a single end-of-run approval bucket so the user isn't prompted per-finding.
 
-This skill is the plan-side analog of `auto-review`. It tightens a plan *before* implementation starts, rather than cleaning code after.
+This skill is the plan-side analog of `auto-review-code`. It tightens a plan *before* implementation starts, rather than cleaning code after.
 
 ## When to use
 
@@ -18,7 +18,7 @@ This skill is the plan-side analog of `auto-review`. It tightens a plan *before*
 ## When NOT to use
 
 - Single-shot plan critique only — use `review-plan` directly
-- Reviewing code rather than a plan — use `auto-review` or `review-code`
+- Reviewing code rather than a plan — use `auto-review-code` or `review-code`
 - Creating a plan from scratch — use `plan-implementation` or `plan-refactor`
 
 ## Target plan
@@ -184,6 +184,6 @@ If the user interrupts mid-round with a correction (e.g., "don't touch the Goals
 ## Related skills
 
 - **review-plan** — the single-shot version; this skill is a loop around it
-- **auto-review** — the code-side analog; same loop pattern for `review-code` + `simplify`
+- **auto-review-code** — the code-side analog; same loop pattern for `review-code` + `simplify`
 - **plan-implementation** / **plan-refactor** — create the plan this skill hardens
 - **grill-me** — use *before* the plan is written for upfront clarification

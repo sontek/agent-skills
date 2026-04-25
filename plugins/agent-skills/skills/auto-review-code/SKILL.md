@@ -1,15 +1,15 @@
 ---
-name: auto-review
-description: Automatically iterate review-code and simplify until no more safe fixes remain. Use when user wants to "auto-review", "auto-fix", run review-and-simplify on repeat, or clean up code without staying in the loop for each finding. Auto-applies local, low-risk fixes; batches risky changes for a single end-of-run approval pass.
+name: auto-review-code
+description: Automatically iterate review-code and simplify until no more safe fixes remain. Use when user wants to "auto-review-code", "auto-fix", run review-and-simplify on repeat, or clean up code without staying in the loop for each finding. Auto-applies local, low-risk fixes; batches risky changes for a single end-of-run approval pass.
 ---
 
-# Auto Review
+# Auto Review Code
 
 Loop: `review-code` → auto-apply safe fixes → `simplify` → auto-apply safe fixes, repeat until convergence or escalation. Collects risky changes into a single end-of-run approval bucket so the user isn't prompted per-finding.
 
 ## When to use
 
-- User says "auto-review", "auto-fix", "clean up until it's clean", or similar
+- User says "auto-review-code", "auto-fix", "clean up until it's clean", or similar
 - User wants to stop manually alternating `review-code` and `simplify`
 - Cleaning a feature branch before opening a PR
 
@@ -87,7 +87,7 @@ For each round (cap at 5):
 3. **Check oscillation.** For each `auto-apply` candidate, check if the same fingerprint was already auto-applied in a previous round. If yes, move it to `flag-for-approval` with a note ("oscillation: applied in round N, re-flagged in round M") — do not apply again.
 4. **Apply review fixes.** For each `auto-apply` fix, classify as testable or not (see "Test-first for testable fixes"). For testable fixes, write the failing test first, confirm it fails, apply the fix, confirm it passes. For non-testable fixes, apply directly. After each fix, run any cheap local verification available (type check, lint). If verification or the new test fails, revert both the fix and the test, and flag the finding.
 5. **Simplify phase.** Run the `simplify` skill against the same scope. Triage its findings with the same policy and oscillation check. Simplify findings are usually non-testable refactors — apply directly, relying on existing tests as the regression guard. If a simplify finding changes behavior rather than preserving it, treat it as testable and TDD it.
-6. **Log the round** to `.claude/auto-review-log.md` (see format below).
+6. **Log the round** to `.claude/auto-review-code-log.md` (see format below).
 7. **Check exit conditions.**
 
 ## Exit conditions
@@ -115,10 +115,10 @@ Line numbers shift as fixes are applied — fingerprint matching for oscillation
 
 ## State log format
 
-Write to `.claude/auto-review-log.md` at the repo root. Overwrite on each invocation (single-run file — users who want history can copy it). Ensure the parent `.claude/` directory exists; create it if needed.
+Write to `.claude/auto-review-code-log.md` at the repo root. Overwrite on each invocation (single-run file — users who want history can copy it). Ensure the parent `.claude/` directory exists; create it if needed.
 
 ```markdown
-# Auto-review log
+# Auto-review-code log
 
 Mode: branch
 Scope: main..HEAD (15 files)
@@ -154,7 +154,7 @@ Started: 2026-04-21T10:03:12Z
 After the loop exits, output a single summary. This is the only user-facing output during the run — no per-finding narration.
 
 ```markdown
-## Auto-review complete
+## Auto-review-code complete
 
 **Mode:** branch | **Scope:** main..HEAD | **Rounds:** 2 (converged)
 
@@ -176,7 +176,7 @@ After the loop exits, output a single summary. This is the only user-facing outp
 **Oscillations caught:** 0
 **Verification failures:** 0
 
-Log: `.claude/auto-review-log.md`
+Log: `.claude/auto-review-code-log.md`
 
 Next: review the flagged items above. Run the normal review-code skill on any that need deeper analysis.
 ```
@@ -185,7 +185,7 @@ Next: review the flagged items above. Run the normal review-code skill on any th
 
 This skill orchestrates `review-code` and `simplify`. For each phase, invoke the corresponding skill and apply its output per the policy above. Do not re-implement their checklists — follow those skills' own rules for what to flag and how to phrase findings.
 
-Pass the mode (`branch` or `paths`) and scope through to each sub-skill invocation so they operate on the same code the auto-review loop is working on.
+Pass the mode (`branch` or `paths`) and scope through to each sub-skill invocation so they operate on the same code the auto-review-code loop is working on.
 
 ## User override mid-run
 
