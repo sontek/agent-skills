@@ -66,7 +66,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | Skill | Description |
 | --- | --- |
 | [review-code](plugins/agent-skills/skills/review-code/SKILL.md) | Prioritized code review (P0-P3) with fail-fast error-handling rubric; `branch` mode (diff vs. main) or `paths` mode (explicit file list) |
-| [auto-review](plugins/agent-skills/skills/auto-review/SKILL.md) | Loop `review-code` and `simplify` until no safe fixes remain; batches risky changes for a single end-of-run approval pass |
+| [auto-review-code](plugins/agent-skills/skills/auto-review-code/SKILL.md) | Loop `review-code` and `simplify` until no safe fixes remain; batches risky changes for a single end-of-run approval pass |
 | [review-security](plugins/agent-skills/skills/review-security/SKILL.md) | OWASP-aligned security review with confidence-based reporting |
 | [review-django-access](plugins/agent-skills/skills/review-django-access/SKILL.md) | Django/DRF IDOR and access-control review |
 | [review-django-perf](plugins/agent-skills/skills/review-django-perf/SKILL.md) | Django performance review (N+1, unbounded queries, missing indexes) |
@@ -81,6 +81,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [plan-implementation](plugins/agent-skills/skills/plan-implementation/SKILL.md) | Structured plan for NEW features (writes `IMPLEMENTATION_PLAN_*.md`) |
 | [plan-refactor](plugins/agent-skills/skills/plan-refactor/SKILL.md) | Tiny-commit refactor plan (writes `REFACTOR_PLAN_*.md`) |
 | [review-plan](plugins/agent-skills/skills/review-plan/SKILL.md) | Route an existing plan (file or plan-mode draft) through `senior-engineer` and `product-manager` for a judgment pass |
+| [auto-review-plan](plugins/agent-skills/skills/auto-review-plan/SKILL.md) | Loop `review-plan` and auto-apply small blocking edits until the plan is clean; flags structural recommendations for end-of-run approval |
 | [improve-architecture](plugins/agent-skills/skills/improve-architecture/SKILL.md) | Find architectural friction and design module-deepening refactors |
 
 ### Meta
