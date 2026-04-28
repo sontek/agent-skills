@@ -36,8 +36,22 @@ A finding is **auto-applied without prompting** when ALL of these hold:
 2. Fix is local: touches ≤5 files AND ≤~50 LOC of changes.
 3. Fix does NOT introduce new modules, files, packages, or dependencies.
 4. Fix does NOT change a public API signature, exported type, or config schema.
-5. Fix is concrete — either a ` ```suggestion ` block or an unambiguous description of the replacement. "Consider refactoring X to Y" without concrete code is NOT concrete.
-6. Fix is not itself a behavior change whose correctness depends on business-logic judgment (e.g., changing a default, altering an error message used by callers, tightening validation that could reject existing inputs).
+5. Fix is concrete. Counts as concrete if any of:
+   - has a ` ```suggestion ` block,
+   - specifies the exact code/text to insert, delete, or replace,
+   - names a specific function/file/identifier with a single unambiguous transformation (e.g., "drop the conditional", "add `.filter(started_at__gte=start_dt)` before `.values(...)`").
+
+   Hedge prose like "Optional —", "Defer until…", "Consider…", or "Acceptable as-is, but…" does NOT by itself disqualify a fix — only ambiguity about *what to do* disqualifies it. "Consider refactoring X to Y" with no specific transformation is NOT concrete.
+6. Fix is not a *judgment-call* behavior change. The following count as auto-applicable behavior changes (small, additive, one-way improvements):
+   - Additive observability: a new `logger.warn`/`logger.info`/`logger.debug` on an exceptional path; a `print` for CLI scripts.
+   - A small UX flash (e.g., `messages.success/info/warning(request, "...")`) that surfaces previously-silent feedback. Does NOT include UI rewrites or copy changes that touch >1 user-visible string.
+   - Differentiating previously-conflated error states (e.g., distinguishing "timeout" from "empty result" in a returned message) where no caller asserts on the old message.
+
+   The following are NOT auto-applicable — flag for approval:
+   - Changing the default value of a config flag, env var, or function kwarg.
+   - Altering an error message asserted on in tests, parsed by callers, or part of a public API contract (grep tests for the message before applying).
+   - Tightening validation on a path that currently accepts values matching the old contract — even if the values look "obviously invalid" — because callers may rely on the laxness.
+   - Changing the return type or shape of a public function.
 
 Otherwise: add to the **flagged-for-approval** bucket and continue the loop. Over-flagging is cheap; over-applying is expensive. When in doubt, flag.
 
@@ -70,6 +84,15 @@ Most correctness and behavior findings can be captured in a regression test. Pre
 4. Apply the fix.
 5. Run the new test. Confirm it passes. Also run the containing test file to catch regressions in nearby cases.
 6. If either run fails, revert both the fix and the test, and flag the finding for approval.
+
+**Standalone "add a regression test" findings.** Some findings have no underlying code fix — the fix *is* "add tests for this latent path" (e.g., "add three tests proving the worker releases the lock after each task"). Auto-apply IF:
+
+- The tests are concrete: each case names specific inputs, the action under test, and the expected behavior. Vague asks like "add coverage for the dispatch path" are NOT concrete.
+- ≤5 new test cases AND ≤100 LOC of test code total.
+- Adds to an existing test file, OR creates a single new test file in an established test layout.
+- Does not require new test fixtures, services, harness changes, or test infrastructure.
+
+Workflow: write the tests, run them. They should pass against current code (these tests pin existing behavior, they don't reproduce a bug). If a test unexpectedly fails, the finding has uncovered a real bug — revert the test and escalate to the user with the failure output.
 
 **When test infrastructure isn't available or slow:**
 - No test framework detected (no `pytest`, `jest`, `go test`, `cargo test`, etc.): apply directly; log the finding with `testable: infra-missing` so the user sees the gap.

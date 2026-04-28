@@ -153,6 +153,15 @@ Tag each finding with a priority:
 - Matter-of-fact tone — helpful, not accusatory.
 - No flattery ("great job...") or filler.
 
+### Fix-block discipline
+
+The **Fix:** field is a commitment that the change is correct and worth doing. If you flagged it, be willing to apply it.
+
+- Don't write "Optional —", "Defer until…", "Consider…", or "Acceptable as-is, but…" inside a Fix block. Hedge prose makes the auto-apply path treat the finding as ambiguous and flag it for approval — even when the fix itself is concrete.
+- If the change is genuinely concrete and worth making: state it directly (`Drop the conditional. Replace the body with X.`).
+- If you think the change is *genuinely optional* (a scaling concern that won't bite at current volume, a stylistic preference): demote the priority to P3 or move it to a Human Reviewer Callout. Don't bury "this isn't really worth doing" inside a Fix block.
+- If the fix offers a choice between two approaches ("Option A: …; Option B: …"), pick one and recommend it. The auto-applier can't decide between options for you.
+
 ## Approval policy
 
 - Approve when only minor issues remain.
