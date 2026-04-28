@@ -7,6 +7,8 @@ description: Create new agent skills with proper structure, progressive disclosu
 
 A meta-skill for authoring new skills in this plugin.
 
+To audit an existing skill against this rubric (after refactors, before merge, on consolidation), use the `review-skill` skill instead — it applies these checks to a skill that already exists.
+
 ## Before you start: skill or agent?
 
 Decide early whether the capability should ship as a **skill** (SKILL.md in `skills/<name>/`) or an **agent** (single `.md` in `agents/`).
@@ -21,7 +23,7 @@ Decide early whether the capability should ship as a **skill** (SKILL.md in `ski
 
 **Naming convention:**
 
-- Skills: `verb-object` (e.g. `create-pr`, `find-bugs`, `review-code`, `write-skill`)
+- Skills: `verb-object` (e.g. `create-pr`, `review-code`, `write-skill`)
 - Agents: `role-noun` (e.g. `code-simplifier`, `security-auditor`)
 - Topic-review form acceptable for audit skills: `review-code`, `review-security`, `review-django-perf`
 

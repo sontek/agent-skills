@@ -15,50 +15,12 @@ Continuously iterate on the current branch until all CI checks pass and review f
 
 ## Bundled Scripts
 
-### `scripts/fetch_pr_checks.py`
+Four scripts power this skill. Full docs in [references/scripts.md](references/scripts.md):
 
-Fetches CI check status and extracts failure snippets from logs.
-
-```bash
-uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_checks.py [--pr NUMBER]
-```
-
-Returns JSON:
-```json
-{
-  "pr": {"number": 123, "branch": "feat/foo"},
-  "summary": {"total": 5, "passed": 3, "failed": 2, "pending": 0},
-  "checks": [
-    {"name": "tests", "status": "fail", "log_snippet": "...", "run_id": 123},
-    {"name": "lint", "status": "pass"}
-  ]
-}
-```
-
-### `scripts/fetch_pr_feedback.py`
-
-Fetches and categorizes PR review feedback using the LOGAF scale (high/medium/low/bot/resolved).
-
-```bash
-uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_feedback.py [--pr NUMBER]
-```
-
-Returns JSON with feedback categorized as:
-- `high` - Must address before merge (`h:`, blocker, changes requested)
-- `medium` - Should address (`m:`, standard feedback)
-- `low` - Optional (`l:`, nit, style, suggestion)
-- `bot` - Informational automated comments (Codecov, Dependabot, etc.)
-- `resolved` - Already resolved threads
-
-Review bot feedback (from Warden, Cursor, Bugbot, CodeQL, etc.) appears in `high`/`medium`/`low` with `review_bot: true` — it is NOT placed in the `bot` bucket.
-
-### `scripts/reply_to_thread.py`
-
-Replies to PR review threads in a single batched GraphQL mutation.
-
-```bash
-uv run ${CLAUDE_SKILL_ROOT}/scripts/reply_to_thread.py THREAD_ID "body" [THREAD_ID "body" ...]
-```
+- `fetch_pr_checks.py` — CI check status + failure log snippets
+- `fetch_pr_feedback.py` — categorized review feedback (LOGAF scale: high/medium/low/bot/resolved)
+- `reply_to_thread.py` — batched GraphQL mutation to reply to PR review threads
+- `monitor_pr_checks.py` — watches CI to terminal state (used by MonitorTool path in step 7)
 
 ## Workflow
 
@@ -155,6 +117,26 @@ Poll CI status and review feedback in a loop instead of blocking:
    d. Sleep 30 seconds (don't increase on subsequent iterations), then repeat from sub-step 1
 5. After all checks pass, do a final feedback check: `sleep 10`, then run `uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_feedback.py`. Address any new high/medium feedback — if changes are needed, return to step 6.
 
+#### MonitorTool optimization (Claude Code only)
+
+Inside Claude Code, the `sleep 30` poll in sub-step 4d can be replaced with a background `MonitorTool` watch on `monitor_pr_checks.py`. This avoids burning conversation context on idle iterations. Other agents continue using the polling loop above — this is purely opt-in for Claude Code.
+
+Run the bundled monitor through `MonitorTool` with `persistent: false`:
+
+```bash
+uv run ${CLAUDE_SKILL_ROOT}/scripts/monitor_pr_checks.py
+```
+
+Set `timeout_ms` to roughly match the repo's normal CI duration. The script stays quiet until terminal state, so the monitor fires once when checks finish.
+
+When `MonitorTool` reports completion, re-run `uv run ${CLAUDE_SKILL_ROOT}/scripts/fetch_pr_checks.py`:
+- All checks passed → continue to sub-step 5 above (final feedback check).
+- Any checks failed → return to step 5 (Fix CI Failures).
+
+If you push new commits while monitoring, the previous monitor was watching the prior CI run — start a fresh monitor against the new run set.
+
+**Tradeoff:** the monitor only watches CI status, not review feedback. New review-bot comments that land while the monitor is running won't be surfaced until checks complete. If your repo has slow CI (>10 min) and fast review bots, prefer the polling loop above.
+
 ### 8. Repeat
 
 If step 7 required code changes (from new feedback after CI passed), return to step 2 for a fresh cycle. CI failures during monitoring are already handled within step 7's polling loop.
@@ -169,22 +151,4 @@ If step 7 required code changes (from new feedback after CI passed), return to s
 
 ## When scripts fail
 
-The bundled scripts are a convenience — the workflow still works without them. If a script fails, fall back to `gh` CLI directly rather than aborting.
-
-### `uv` not installed
-
-Install `uv` (https://docs.astral.sh/uv/getting-started/installation/) or fall back to raw `gh` commands:
-
-- Check status: `gh pr checks --json name,state,bucket,link`
-- Failed logs: `gh run list --branch $(git branch --show-current) --limit 5 --json databaseId,name,status,conclusion` then `gh run view <run-id> --log-failed`
-- Review threads: `gh api repos/{owner}/{repo}/pulls/{pr}/comments` and `gh api repos/{owner}/{repo}/issues/{pr}/comments`
-
-When using `gh` directly, categorize feedback manually — look for `h:`/`m:`/`l:` markers and words like "must fix", "blocker", "nit", "style".
-
-### Script runtime errors
-
-Network blips, GitHub API rate limits, or transient auth hiccups will surface as non-zero exits. Retry once after a short delay. If the second attempt fails, fall back to raw `gh` commands above rather than looping.
-
-### Parsing errors
-
-If a script returns malformed JSON or unexpected output, emit the raw output to the user unprocessed — do not silently continue with an empty/default value. Treat parsing errors as a signal to switch to the `gh` CLI fallback.
+If `uv` isn't installed or a bundled script fails, fall back to raw `gh` CLI rather than aborting. See [references/fallbacks.md](references/fallbacks.md) for the equivalent `gh` invocations and runtime/parsing-error handling.

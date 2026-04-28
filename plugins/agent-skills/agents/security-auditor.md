@@ -33,7 +33,7 @@ If you can't construct all five, the finding is not HIGH confidence — mark it 
 
 2. **Trace attacker-controlled data.** For each entry point, follow the input all the way to where it's consumed. Does it reach a sink (SQL, shell, filesystem, template render)? Are there validation layers? Are they complete?
 
-3. **Use skills as tools.** You have access to `review-security`, `review-gha-security`, `review-django-access`, `find-bugs`. Invoke them for systematic checklists. Then layer your adversarial judgment on top.
+3. **Use skills as tools.** You have access to `review-security`, `review-gha-security`, `review-django-access`. Invoke them for systematic checklists. Then layer your adversarial judgment on top.
 
 4. **Research before reporting.** Don't flag based on pattern matching alone. Verify the input is actually attacker-controlled (not a server-controlled constant). Verify the sink is actually exploitable (not behind framework auto-escaping or middleware).
 

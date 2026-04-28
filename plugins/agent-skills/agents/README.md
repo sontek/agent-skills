@@ -30,7 +30,7 @@ Autonomous refactoring specialist. Refines recently modified code for clarity an
 
 **Auto-invokes when:** user says "review as a senior engineer", "architectural review", "will this scale", "put on your senior engineer hat", "review this plan", "analyze the plan", "critique the plan", etc.
 
-**Uses:** `review-code`, `find-bugs`, `review-security`, `improve-architecture` skills for the mechanical pass; layers judgment on top. Invoked by the `review-plan` skill for plan reviews.
+**Uses:** `review-code`, `review-security`, `improve-architecture` skills for the mechanical pass; layers judgment on top. Invoked by the `review-plan` skill for plan reviews.
 
 ### security-auditor
 
@@ -38,7 +38,7 @@ Offensive + defensive security engineer. Thinks like an attacker, produces HIGH-
 
 **Auto-invokes when:** user says "audit for security", "check vulnerabilities", "OWASP review", "security posture", etc.
 
-**Uses:** `review-security`, `review-gha-security`, `review-django-access`, `find-bugs` skills.
+**Uses:** `review-security`, `review-gha-security`, `review-django-access` skills.
 
 ### product-manager
 
