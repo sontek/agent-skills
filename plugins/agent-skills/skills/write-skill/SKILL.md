@@ -7,6 +7,8 @@ description: Create new agent skills with proper structure, progressive disclosu
 
 A meta-skill for authoring new skills in this plugin.
 
+To audit an existing skill against this rubric (after refactors, before merge, on consolidation), use the `review-skill` skill instead — it applies these checks to a skill that already exists.
+
 ## Before you start: skill or agent?
 
 Decide early whether the capability should ship as a **skill** (SKILL.md in `skills/<name>/`) or an **agent** (single `.md` in `agents/`).

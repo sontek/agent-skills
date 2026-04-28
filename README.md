@@ -88,6 +88,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | Skill | Description |
 | --- | --- |
 | [write-skill](plugins/agent-skills/skills/write-skill/SKILL.md) | Create new skills and agents with proper structure and triggers |
+| [review-skill](plugins/agent-skills/skills/review-skill/SKILL.md) | Audit existing skills against the `write-skill` rubric (frontmatter, trigger coverage, structure, references) |
 | [write-agents-md](plugins/agent-skills/skills/write-agents-md/SKILL.md) | Write concise, high-signal `AGENTS.md` / `CLAUDE.md` files |
 
 ## Available Agents
