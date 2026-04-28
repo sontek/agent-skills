@@ -184,6 +184,6 @@ If the user interrupts mid-round with a correction (e.g., "don't touch the Goals
 ## Related skills
 
 - **review-plan** — the single-shot version; this skill is a loop around it
-- **auto-review-code** — the code-side analog; same loop pattern for `review-code` + `simplify`
+- **auto-review-code** — the code-side analog; same loop pattern for `review-code` + `review-security` + `code-simplifier`
 - **plan-implementation** / **plan-refactor** — create the plan this skill hardens
 - **grill-me** — use *before* the plan is written for upfront clarification
