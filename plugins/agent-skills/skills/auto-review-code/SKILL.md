@@ -85,7 +85,7 @@ Most correctness and behavior findings can be captured in a regression test. Pre
 5. Run the new test. Confirm it passes. Also run the containing test file to catch regressions in nearby cases.
 6. If either run fails, revert both the fix and the test, and flag the finding for approval.
 
-**Standalone "add a regression test" findings.** Some findings have no underlying code fix — the fix *is* "add tests for this latent path" (e.g., "add three tests proving the worker releases the lock after each task"). Auto-apply IF:
+**Standalone "add a regression test" findings.** Some findings have no underlying code fix — the fix *is* "add tests for this latent path" (e.g., "add three tests proving the worker releases the lock after each task"). This is a sub-policy that overrides criterion 2's ≤~50 LOC cap (test code is bulkier than fix code); the other criteria still apply. Auto-apply IF:
 
 - The tests are concrete: each case names specific inputs, the action under test, and the expected behavior. Vague asks like "add coverage for the dispatch path" are NOT concrete.
 - ≤5 new test cases AND ≤100 LOC of test code total.
