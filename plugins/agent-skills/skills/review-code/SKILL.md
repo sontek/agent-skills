@@ -1,6 +1,6 @@
 ---
 name: review-code
-description: Perform code reviews with prioritized, actionable findings. Use when reviewing pull requests, examining code changes, or providing feedback on code quality. Supports two modes — `branch` (default, reviews diff vs. main) and `paths` (reviews an explicit file/dir list as-is, ignoring git history). Covers correctness, performance, security, design, testing, and cross-cutting concerns.
+description: Perform code reviews and find bugs/security issues with prioritized, actionable findings. Use when reviewing pull requests, examining code changes, finding bugs, auditing for vulnerabilities, or providing feedback on code quality. Supports two modes — `branch` (default, reviews diff vs. main) and `paths` (reviews an explicit file/dir list as-is, ignoring git history). Covers correctness, performance, security, design, testing, and cross-cutting concerns.
 ---
 
 # Review Code
@@ -29,15 +29,27 @@ Walk upward from the current working directory until you find a `REVIEW_GUIDELIN
 
 ## Investigation approach
 
-Before flagging anything:
+Reviews need two disciplines: *coverage* (look at everything in scope) and *narrowing* (only fire on evidence).
 
-1. List 5-7 plausible issues from the diff.
-2. Gather evidence for each (check call sites, related tests, types).
-3. Narrow to 1-2 most likely *real* issues per category.
-4. Validate — read the code, don't speculate.
-5. Only then write findings.
+**Before you start — coverage:**
 
-This prevents guess-and-check review cycles. Don't stop at the first plausible issue per category — the obvious one is often not the real one.
+1. Enumerate scope. List every file/path in scope. In `branch` mode, read each affected file *completely* — not just the diff hunk. In `paths` mode, read each listed file or directory completely. Context outside the hunk is often where the real bug hides.
+
+**For each candidate finding — narrowing:**
+
+2. List 5-7 plausible issues from the scope.
+3. Gather evidence for each (check call sites, related tests, types).
+4. Narrow to 1-2 most likely *real* issues per category.
+5. Validate — read the code, don't speculate.
+
+**Before writing findings — coverage:**
+
+6. Confirm each in-scope file was read and each applicable category from the checklist below was considered.
+7. If you couldn't verify something with evidence (a call site outside scope, an external dependency, a permission class defined elsewhere), surface the gap. Only mention real gaps — no boilerplate "everything verified" notes.
+
+8. Only then write findings.
+
+This prevents both guess-and-check cycles and confident "looks clean" reports on skimmed code. The obvious issue is often not the real one.
 
 ## What to flag
 
@@ -200,51 +212,4 @@ Rules for the Callouts section:
 
 ## Common patterns to flag
 
-### Python/Django — N+1 query
-
-```python
-# Bad
-for user in users:
-    print(user.profile.name)  # query per user
-
-# Good
-users = User.objects.prefetch_related('profile')
-```
-
-### TypeScript/React — missing effect dependency
-
-```typescript
-// Bad
-useEffect(() => {
-  fetchData(userId);
-}, []);  // userId not in deps
-
-// Good
-useEffect(() => {
-  fetchData(userId);
-}, [userId]);
-```
-
-### Security — SQL injection
-
-```python
-# Bad
-cursor.execute(f"SELECT * FROM users WHERE id = {user_id}")
-
-# Good
-cursor.execute("SELECT * FROM users WHERE id = %s", [user_id])
-```
-
-### Silent error swallowing (flag by default)
-
-```javascript
-// Bad — swallows the error
-try {
-  return JSON.parse(data);
-} catch {
-  return {};
-}
-
-// Good — fail loudly, or translate at an explicit boundary
-return JSON.parse(data);  // let it throw
-```
+See [references/patterns.md](references/patterns.md) for concrete examples (N+1 queries, missing effect deps, SQL injection, silent error swallowing, language-specific traps like Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources). Load that file when a finding looks like one of those patterns.

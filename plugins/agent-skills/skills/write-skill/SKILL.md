@@ -21,7 +21,7 @@ Decide early whether the capability should ship as a **skill** (SKILL.md in `ski
 
 **Naming convention:**
 
-- Skills: `verb-object` (e.g. `create-pr`, `find-bugs`, `review-code`, `write-skill`)
+- Skills: `verb-object` (e.g. `create-pr`, `review-code`, `write-skill`)
 - Agents: `role-noun` (e.g. `code-simplifier`, `security-auditor`)
 - Topic-review form acceptable for audit skills: `review-code`, `review-security`, `review-django-perf`
 

@@ -45,7 +45,7 @@ Or use `/plugin` to open the interactive plugin manager.
 
 This plugin ships two kinds of capabilities:
 
-- **Skills** — atomic workflows the main agent loads inline. `verb-object` naming (`create-pr`, `find-bugs`, `review-code`).
+- **Skills** — atomic workflows the main agent loads inline. `verb-object` naming (`create-pr`, `review-code`, `write-skill`).
 - **Agents** — persona subagents that run in isolated context and compose skills with judgment. `role-noun` naming (`senior-engineer`, `security-auditor`).
 
 See [Skills vs agents](#skills-vs-agents) for the decision guide.
@@ -71,7 +71,6 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [review-django-access](plugins/agent-skills/skills/review-django-access/SKILL.md) | Django/DRF IDOR and access-control review |
 | [review-django-perf](plugins/agent-skills/skills/review-django-perf/SKILL.md) | Django performance review (N+1, unbounded queries, missing indexes) |
 | [review-gha-security](plugins/agent-skills/skills/review-gha-security/SKILL.md) | GitHub Actions security review (pwn requests, expression injection, credential theft) |
-| [find-bugs](plugins/agent-skills/skills/find-bugs/SKILL.md) | Find bugs, security vulnerabilities, and quality issues in branch changes |
 
 ### Planning & design
 
@@ -109,7 +108,7 @@ See [agents/README.md](plugins/agent-skills/agents/README.md) for invocation tri
 | | Skills | Agents |
 | --- | --- | --- |
 | What | Atomic capabilities loaded inline | Personas/roles running in isolated context |
-| Naming | `verb-object` (`create-pr`, `find-bugs`) | `role-noun` (`senior-engineer`, `code-simplifier`) |
+| Naming | `verb-object` (`create-pr`, `review-code`) | `role-noun` (`senior-engineer`, `code-simplifier`) |
 | Location | `plugins/agent-skills/skills/<name>/SKILL.md` | `plugins/agent-skills/agents/<name>.md` |
 | Frontmatter | `allowed-tools:` | `model:` (opus/sonnet/haiku) |
 | Context | Runs in main conversation — user sees every step | Runs in isolated context — returns a final report |
