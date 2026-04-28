@@ -1,16 +1,16 @@
 ---
 name: auto-review-code
-description: Automatically iterate review-code and simplify until no more safe fixes remain. Use when user wants to "auto-review-code", "auto-fix", run review-and-simplify on repeat, or clean up code without staying in the loop for each finding. Auto-applies local, low-risk fixes; batches risky changes for a single end-of-run approval pass.
+description: Automatically iterate review-code and code-simplifier until no more safe fixes remain. Use when user wants to "auto-review-code", "auto-fix", run review-and-simplify on repeat, or clean up code without staying in the loop for each finding. Auto-applies local, low-risk fixes; batches risky changes for a single end-of-run approval pass.
 ---
 
 # Auto Review Code
 
-Loop: `review-code` → auto-apply safe fixes → `simplify` → auto-apply safe fixes, repeat until convergence or escalation. Collects risky changes into a single end-of-run approval bucket so the user isn't prompted per-finding.
+Loop: `review-code` → auto-apply safe fixes → `review-security` → auto-apply safe fixes → `code-simplifier` agent → auto-apply safe fixes, repeat until convergence or escalation. Collects risky changes into a single end-of-run approval bucket so the user isn't prompted per-finding.
 
 ## When to use
 
 - User says "auto-review-code", "auto-fix", "clean up until it's clean", or similar
-- User wants to stop manually alternating `review-code` and `simplify`
+- User wants to stop manually alternating `review-code`, `review-security`, and the `code-simplifier` agent
 - Cleaning a feature branch before opening a PR
 
 ## When NOT to use
@@ -26,7 +26,7 @@ Same as `review-code`. Pick one before starting; default `branch`.
 - **`branch` (default)** — Scope is branch changes vs. main.
 - **`paths`** — Scope is an explicit list of files or directories reviewed as-is. Requires the invoker to provide the list; do not default to whole-repo.
 
-Pass the selected mode through to both `review-code` and `simplify` each round so scopes stay aligned.
+Pass the selected mode through to `review-code`, `review-security`, and the `code-simplifier` agent each round so scopes stay aligned.
 
 ## Auto-apply policy
 
@@ -109,19 +109,26 @@ For each round (cap at 5):
 2. **Triage findings.** For each finding, classify as: `p0-halt`, `auto-apply`, or `flag-for-approval`. If any `p0-halt`, escalate immediately and exit the loop.
 3. **Check oscillation.** For each `auto-apply` candidate, check if the same fingerprint was already auto-applied in a previous round. If yes, move it to `flag-for-approval` with a note ("oscillation: applied in round N, re-flagged in round M") — do not apply again.
 4. **Apply review fixes.** For each `auto-apply` fix, classify as testable or not (see "Test-first for testable fixes"). For testable fixes, write the failing test first, confirm it fails, apply the fix, confirm it passes. For non-testable fixes, apply directly. After each fix, run any cheap local verification available (type check, lint). If verification or the new test fails, revert both the fix and the test, and flag the finding.
-5. **Simplify phase.** Run the `simplify` skill against the same scope. Triage its findings with the same policy and oscillation check. Simplify findings are usually non-testable refactors — apply directly, relying on existing tests as the regression guard. If a simplify finding changes behavior rather than preserving it, treat it as testable and TDD it.
-6. **Log the round** to `.claude/auto-review-code-log.md` (see format below).
-7. **Check exit conditions.**
+5. **Security phase.** Run the `review-security` skill against the same scope. Map its severities to the auto-apply policy:
+   - **Critical → P0 hard-stop.** RCE, SQL injection to data, auth bypass, hardcoded production secrets. Escalate to the user immediately and exit the loop.
+   - **High → P1.** Eligible for auto-apply if criteria 2–6 hold; otherwise flag. Security-driven changes (parameterizing queries, escaping output, adding allow-list validation against an injection or SSRF vector) count as auto-applicable behavior changes — they remove exploitability rather than altering documented behavior.
+   - **Medium → flag for approval.** Often surfaces as `Needs Verification` from `review-security` — these are open questions, not concrete fixes. Add to the flagged bucket with the verification question intact.
+   - **Low** is not reported by `review-security`.
+
+   Apply the same triage, oscillation, and TDD-where-testable rules as step 4. Most security findings are testable: write a failing test that demonstrates the exploit (for injection/IDOR/SSRF: exercise the vulnerable path with attacker-controlled input and assert it's rejected), apply the fix, confirm the test passes.
+6. **Simplify phase.** Invoke the `code-simplifier` agent via the Task tool (`subagent_type: code-simplifier`) against the same scope. The agent returns a per-file change report; treat each entry as a finding, triage with the same policy and oscillation check. Simplifier findings are usually non-testable refactors — apply directly, relying on existing tests as the regression guard. If a simplifier finding changes behavior rather than preserving it, treat it as testable and TDD it.
+7. **Log the round** to `.claude/auto-review-code-log.md` (see format below).
+8. **Check exit conditions.**
 
 ## Exit conditions
 
 Stop when any of these hit:
 
-- **Convergence** — A full round (review phase + simplify phase) produced zero auto-applied fixes. This is the normal success exit.
+- **Convergence** — A full round (review phase + security phase + simplify phase) produced zero auto-applied fixes. This is the normal success exit.
 - **Max rounds** — 5 rounds completed. Note the cap was hit in the summary; may indicate a deeper issue worth user review.
-- **P0 hard-stop** — Exit to user for direction.
+- **P0 hard-stop** — Exit to user for direction. Triggered by either a `review-code` P0 finding or a `review-security` Critical finding.
 - **Oscillation** — A finding was auto-applied in an earlier round and has returned. Move to flagged bucket with oscillation note and continue; if the same fingerprint oscillates twice, exit the loop immediately with the log attached.
-- **Verification failure loop** — If three consecutive fix attempts fail verification, stop and escalate. Something in the review or simplify output is producing broken fixes.
+- **Verification failure loop** — If three consecutive fix attempts fail verification, stop and escalate. Something in the review, security, or simplifier output is producing broken fixes.
 
 ## Fingerprint format
 
@@ -156,7 +163,14 @@ Started: 2026-04-21T10:03:12Z
 - [P1] src/api/*.py | design | unify-error-handling-across-views
   - action: flagged (touches 12 files — exceeds local threshold)
 
-## Round 1 — simplify
+## Round 1 — review-security
+
+- [High] src/api/search.py:88 | security | sql-injection-search-query
+  - action: auto-applied (test: tests/api/test_search.py::test_rejects_quote_injection — added, failed before, passes after)
+- [Medium] src/api/upload.py:24 | security | path-traversal-needs-verification
+  - action: flagged (Needs Verification: confirm filename is sanitized upstream by the multipart parser)
+
+## Round 1 — code-simplifier
 
 - src/api/users.py:60 | simplify | redundant-wrapper
   - action: auto-applied (non-testable: refactor — relying on existing tests)
@@ -165,7 +179,11 @@ Started: 2026-04-21T10:03:12Z
 
 - (no findings)
 
-## Round 2 — simplify
+## Round 2 — review-security
+
+- (no findings)
+
+## Round 2 — code-simplifier
 
 - (no findings)
 
@@ -181,34 +199,46 @@ After the loop exits, output a single summary. This is the only user-facing outp
 
 **Mode:** branch | **Scope:** main..HEAD | **Rounds:** 2 (converged)
 
-**Auto-applied (3):**
+**Auto-applied (4):**
 - [P2] src/api/users.py:42 — removed dead import
 - [P1] src/api/users.py:118 — added missing await (+ regression test: `tests/api/test_users.py::test_fetch_awaits_db_call`)
-- src/api/users.py:60 — flattened redundant wrapper (simplify)
+- [Sec-High] src/api/search.py:88 — parameterized search query (+ regression test: `tests/api/test_search.py::test_rejects_quote_injection`)
+- src/api/users.py:60 — flattened redundant wrapper (code-simplifier)
 
-**Regression tests added:** 1
+**Regression tests added:** 2
 **Testable fixes applied without tests (infra missing or slow):** 0
 
-**Flagged for approval (1):**
+**Flagged for approval (2):**
 
 1. **[P1] Unify error handling across views** — `src/api/*.py`
    Review finding: each view re-implements its own try/except with inconsistent error shapes; consolidate to a shared handler.
    Why flagged: touches 12 files, crosses module boundary.
    To apply: review each affected file, then say "apply #1" or address manually.
 
+2. **[Sec-Med] Path traversal needs verification** — `src/api/upload.py:24`
+   Review finding: filename from the multipart parser is interpolated into a path; couldn't confirm sanitization upstream from this scope.
+   Why flagged: Medium confidence — not enough evidence for a HIGH-confidence finding without tracing the parser.
+   To apply: trace the parser source; if it does not strip path separators, add `os.path.basename()` and a regression test.
+
 **Oscillations caught:** 0
 **Verification failures:** 0
 
 Log: `.claude/auto-review-code-log.md`
 
-Next: review the flagged items above. Run the normal review-code skill on any that need deeper analysis.
+Next: review the flagged items above. Run the normal `review-code` or `review-security` skills on any that need deeper analysis.
 ```
 
-## Invoking sub-skills
+## Invoking sub-skills and sub-agents
 
-This skill orchestrates `review-code` and `simplify`. For each phase, invoke the corresponding skill and apply its output per the policy above. Do not re-implement their checklists — follow those skills' own rules for what to flag and how to phrase findings.
+This skill orchestrates three sub-capabilities per round, in order:
 
-Pass the mode (`branch` or `paths`) and scope through to each sub-skill invocation so they operate on the same code the auto-review-code loop is working on.
+1. **`review-code`** — invoke as a sub-skill in the configured mode (`branch` or `paths`).
+2. **`review-security`** — invoke as a sub-skill in the same mode. It accepts the same `branch` / `paths` scope; pass it through.
+3. **`code-simplifier`** — invoke via the Task tool with `subagent_type: "code-simplifier"`. This is an agent, not a skill: it runs in isolated context and returns a per-file change report. Pass the same scope so it focuses on the right files.
+
+For each phase, apply the sub-skill or sub-agent's output per the auto-apply policy above. Do not re-implement their checklists — follow each one's own rules for what to flag and how to phrase findings.
+
+Pass the mode and scope through to each invocation so they operate on the same code the auto-review-code loop is working on.
 
 ## User override mid-run
 

@@ -1,6 +1,6 @@
 ---
 name: code-simplifier
-description: Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Focuses on recently modified code unless instructed otherwise.
+description: Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Use when the user says "simplify", "clean this up", "refactor for clarity", "tidy up the code", "remove redundancy", or after AI-generated code lands and may contain slop (defensive try/catch, trivial wrappers, placeholder comments). Also invoked by `auto-review-code` as the simplification phase of its loop. Focuses on recently modified code unless instructed otherwise.
 model: opus
 ---
 
