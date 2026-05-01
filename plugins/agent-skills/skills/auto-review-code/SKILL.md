@@ -55,6 +55,13 @@ A finding is **auto-applied without prompting** when ALL of these hold:
 
 Otherwise: add to the **flagged-for-approval** bucket and continue the loop. Over-flagging is cheap; over-applying is expensive. When in doubt, flag.
 
+When you flag a finding, capture the dossier *now* while the context is fresh — don't defer it to summary time. For each flagged item, record: a plain-language **What this would change**, concrete **Pros** and **Cons** of applying it (with at least one example each — actual file/line, actual scenario, actual cost), and a **Recommendation** with explicit confidence. The recommendation rule:
+
+- **Only recommend `apply` or `skip` when you have a real basis** (you've read the surrounding code, you understand the trade-off, you'd defend the call). State confidence as `high` or `medium` and one short reason.
+- **If you don't have a real basis, say `no strong opinion — depends on <the open question>`.** Naming the question is the work — it's what unblocks the user. Do not fabricate a recommendation to look decisive.
+
+Hedge prose like "Consider…", "Worth thinking about…", or "May be acceptable as-is" is not a recommendation — convert it into one of the three forms above before flagging.
+
 ## Hard-stop on P0
 
 Any P0 finding stops the loop immediately. Do not auto-apply. Show the finding to the user and wait for direction. P0 means "drop everything, blocking" — it deserves a thinking pass, not a reflex fix.
@@ -106,7 +113,7 @@ Do NOT spend time standing up test infrastructure inside the loop. That's a sepa
 For each round (cap at 5):
 
 1. **Review phase.** Run the `review-code` skill in the configured mode. Capture all findings with fingerprints (see below).
-2. **Triage findings.** For each finding, classify as: `p0-halt`, `auto-apply`, or `flag-for-approval`. If any `p0-halt`, escalate immediately and exit the loop.
+2. **Triage findings.** For each finding, classify as: `p0-halt`, `auto-apply`, or `flag-for-approval`. If any `p0-halt`, escalate immediately and exit the loop. For each `flag-for-approval` finding, build the What / Pros / Cons / Recommendation dossier per the Auto-apply policy section before continuing — do not defer it to summary time.
 3. **Check oscillation.** For each `auto-apply` candidate, check if the same fingerprint was already auto-applied in a previous round. If yes, move it to `flag-for-approval` with a note ("oscillation: applied in round N, re-flagged in round M") — do not apply again.
 4. **Apply review fixes.** For each `auto-apply` fix, classify as testable or not (see "Test-first for testable fixes"). For testable fixes, write the failing test first, confirm it fails, apply the fix, confirm it passes. For non-testable fixes, apply directly. After each fix, run any cheap local verification available (type check, lint). If verification or the new test fails, revert both the fix and the test, and flag the finding.
 5. **Security phase.** Run the `review-security` skill against the same scope. Map its severities to the auto-apply policy:
@@ -115,7 +122,7 @@ For each round (cap at 5):
    - **Medium → flag for approval.** Often surfaces as `Needs Verification` from `review-security` — these are open questions, not concrete fixes. Add to the flagged bucket with the verification question intact.
    - **Low** is not reported by `review-security`.
 
-   Apply the same triage, oscillation, and TDD-where-testable rules as step 4. Most security findings are testable: write a failing test that demonstrates the exploit (for injection/IDOR/SSRF: exercise the vulnerable path with attacker-controlled input and assert it's rejected), apply the fix, confirm the test passes.
+   Apply the same triage (step 2), oscillation (step 3), and TDD-where-testable (step 4) rules. Most security findings are testable: write a failing test that demonstrates the exploit (for injection/IDOR/SSRF: exercise the vulnerable path with attacker-controlled input and assert it's rejected), apply the fix, confirm the test passes.
 6. **Simplify phase.** Invoke the `code-simplifier` agent via the Task tool (`subagent_type: code-simplifier`) against the same scope. The agent returns a per-file change report; treat each entry as a finding, triage with the same policy and oscillation check. Simplifier findings are usually non-testable refactors — apply directly, relying on existing tests as the regression guard. If a simplifier finding changes behavior rather than preserving it, treat it as testable and TDD it.
 7. **Log the round** to `.claude/auto-review-code-log.md` (see format below).
 8. **Check exit conditions.**
@@ -194,7 +201,7 @@ Started: 2026-04-21T10:03:12Z
 
 After the loop exits, output a single summary. This is the only user-facing output during the run — no per-finding narration.
 
-```markdown
+````markdown
 ## Auto-review-code complete
 
 **Mode:** branch | **Scope:** main..HEAD | **Rounds:** 2 (converged)
@@ -210,15 +217,30 @@ After the loop exits, output a single summary. This is the only user-facing outp
 
 **Flagged for approval (2):**
 
+Each flagged item uses this format. Don't omit fields — if pros/cons/recommendation aren't filled in, the user has to ask for them anyway.
+
+```
+N. **[Priority] Title** — `location`
+   **What this would change:** 1–2 sentences in plain language. Name the before/after behavior, not just the abstract concept.
+   **Pros (apply it):** concrete benefit(s), with at least one example. e.g., "removes one DB round-trip per request — `views.search` currently runs N+1 over `result.items`."
+   **Cons (apply it):** concrete cost(s) or risk(s), with at least one example. e.g., "12 files touched; conflicts with the in-flight users-API refactor on branch `feat/users-v2`."
+   **Recommendation:** `apply` (confidence: high|medium) — one-line reason. OR `skip` (confidence: …) — one-line reason. OR `no strong opinion` — depends on <the open question>. Pick exactly one. Don't recommend without a basis.
+   **To apply:** specific next action (e.g., `say "apply #N"`, or `decide on <question>, then re-run /auto-review-code`).
+```
+
 1. **[P1] Unify error handling across views** — `src/api/*.py`
-   Review finding: each view re-implements its own try/except with inconsistent error shapes; consolidate to a shared handler.
-   Why flagged: touches 12 files, crosses module boundary.
-   To apply: review each affected file, then say "apply #1" or address manually.
+   **What this would change:** Replace per-view try/except blocks with a single decorator (`@handle_api_errors`) on each view, returning a uniform `{error, code, request_id}` shape. Today, `users.py` returns `{detail: …}`, `search.py` returns `{message: …}`, and `upload.py` re-raises.
+   **Pros (apply it):** Frontend can drop three error-shape branches in `client/src/api.ts:142`. New views inherit correct logging without each author remembering. Removes ~80 lines of duplicated try/except across the 12 views.
+   **Cons (apply it):** Touches 12 files; conflicts with `feat/users-v2` which is rewriting `users.py` error paths this week. Frontend has to update its error-shape matcher in the same release or it'll log spurious "unknown error shape" warnings.
+   **Recommendation:** `no strong opinion` — depends on whether `feat/users-v2` lands first. If yes, this is straightforward; if no, sequencing pain outweighs the cleanup.
+   **To apply:** Confirm the merge order with the users-v2 author, then say "apply #1".
 
 2. **[Sec-Med] Path traversal needs verification** — `src/api/upload.py:24`
-   Review finding: filename from the multipart parser is interpolated into a path; couldn't confirm sanitization upstream from this scope.
-   Why flagged: Medium confidence — not enough evidence for a HIGH-confidence finding without tracing the parser.
-   To apply: trace the parser source; if it does not strip path separators, add `os.path.basename()` and a regression test.
+   **What this would change:** Add `os.path.basename(filename)` before joining with the upload directory, plus a regression test asserting `../../etc/passwd` is rejected. Today the filename from the multipart parser is interpolated directly into the destination path.
+   **Pros (apply it):** Closes a path-traversal vector if the upstream parser doesn't already strip separators. Cheap defense-in-depth (one line + one test). Test pins the behavior so future parser swaps can't silently regress it.
+   **Cons (apply it):** If the parser already sanitizes, the change is dead code — minor noise. The test could mask a real upstream regression by passing on the local sanitizer instead of the parser.
+   **Recommendation:** `apply` (confidence: medium) — defense-in-depth is cheap and the regression test catches a future parser swap.
+   **To apply:** Say "apply #2", or trace `request.files` to the multipart parser first if you'd rather verify the parser sanitizes before adding a redundant guard.
 
 **Oscillations caught:** 0
 **Verification failures:** 0
@@ -226,7 +248,7 @@ After the loop exits, output a single summary. This is the only user-facing outp
 Log: `.claude/auto-review-code-log.md`
 
 Next: review the flagged items above. Run the normal `review-code` or `review-security` skills on any that need deeper analysis.
-```
+````
 
 ## Invoking sub-skills and sub-agents
 
