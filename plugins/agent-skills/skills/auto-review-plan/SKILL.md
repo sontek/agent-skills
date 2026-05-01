@@ -62,6 +62,13 @@ A finding is **auto-applied without prompting** when ALL of these hold:
 
 Otherwise: add to the **flagged-for-approval** bucket and continue the loop. Over-flagging is cheap; over-applying is expensive. When in doubt, flag. Plans are cheaper to re-review than to re-litigate, so err toward the user.
 
+When you flag a finding, capture the dossier *now* while the context is fresh — don't defer it to summary time. For each flagged item, record: a plain-language **What this would change**, concrete **Pros** and **Cons** of applying it (with at least one example each — actual phase, actual scenario, actual cost), and a **Recommendation** with explicit confidence. The recommendation rule:
+
+- **Only recommend `apply` or `skip` when you have a real basis** (you've understood the trade-off, you'd defend the call). State confidence as `high` or `medium` and one short reason.
+- **If you don't have a real basis, say `no strong opinion — depends on <the open question>`.** Naming the question is the work — it's what unblocks the user. Do not fabricate a recommendation to look decisive.
+
+Hedge prose like "Consider…", "Worth thinking about…", or "May be acceptable" is not a recommendation — convert it into one of the three forms above before flagging.
+
 ## Hard-stop on "Rethink approach"
 
 If `review-plan` returns a verdict of `Rethink approach`, stop the loop immediately. Do not auto-apply anything from that round. Show the full review to the user and wait for direction. "Rethink" means the plan has a problem that tactical edits won't fix — it deserves a thinking pass, not a reflex edit.
@@ -72,7 +79,7 @@ For each round (cap at 3):
 
 1. **Review phase.** Invoke the `review-plan` skill against the target plan (file path for file-based runs, inline text for in-conversation runs). Capture all findings with fingerprints (see below) and the returned verdict.
 2. **Check verdict.** If verdict is `Rethink approach`, hard-stop and exit to the user.
-3. **Triage findings.** For each finding, classify as: `auto-apply` or `flag-for-approval` per the policy above.
+3. **Triage findings.** For each finding, classify as: `auto-apply` or `flag-for-approval` per the policy above. For each `flag-for-approval` finding, build the What / Pros / Cons / Recommendation dossier per the Auto-apply policy section before continuing — do not defer it to summary time.
 4. **Check oscillation.** For each `auto-apply` candidate, check if the same fingerprint was already auto-applied in a previous round. If yes, move it to `flag-for-approval` with a note ("oscillation: applied in round N, re-flagged in round M") — do not apply again. If the same fingerprint oscillates twice, exit the loop immediately.
 5. **Apply plan edits.**
    - *File-based:* edit the plan file in place. Use `Edit` with narrow `old_string` / `new_string` anchored to the finding's section so unrelated text isn't disturbed. After each edit, re-read the plan file to confirm the change landed.
@@ -141,7 +148,7 @@ Verdict: Ready to implement
 
 After the loop exits, output a single summary. This is the only user-facing output during the run — no per-finding narration while looping.
 
-```markdown
+````markdown
 ## Auto-review-plan complete
 
 **Target:** IMPLEMENTATION_PLAN_checkout-redesign.md  *(or: `plan-mode draft — "Checkout Redesign"`)*
@@ -153,15 +160,30 @@ After the loop exits, output a single summary. This is the only user-facing outp
 
 **Flagged for approval (2):**
 
+Each flagged item uses this format. Don't omit fields — if pros/cons/recommendation aren't filled in, the user has to ask for them anyway.
+
+```
+N. **[Priority] Title** — `section/phase`
+   **What this would change:** 1–2 sentences in plain language. Name the before/after content, not just the abstract concept.
+   **Pros (apply it):** concrete benefit(s), with at least one example.
+   **Cons (apply it):** concrete cost(s) or risk(s), with at least one example.
+   **Recommendation:** `apply` (confidence: high|medium) — one-line reason. OR `skip` (confidence: …) — one-line reason. OR `no strong opinion` — depends on <the open question>. Pick exactly one.
+   **To apply:** specific next action (e.g., `update <section> with <decision>, then re-run /auto-review-plan`).
+```
+
 1. **[Blocking] Clarify success criteria** — `Goals` section
-   Review finding: "Success" is defined as "users like the new checkout" — no measurable target.
-   Why flagged: requires product-level decision (target metric, threshold, time window).
-   To apply: update the Goals section with a specific metric, then re-run auto-review-plan or proceed.
+   **What this would change:** Replace "users like the new checkout" with a measurable target — e.g., "checkout completion rate ≥ 92% over the 14-day rollout window, p95 latency ≤ 800ms" — and add a `## Success criteria` subsection naming the metric source (Amplitude funnel `checkout_v2`).
+   **Pros (apply it):** Lets the rollout phase actually have a go/no-go gate instead of a vibe check. Makes "is this done?" answerable from a dashboard. Forces the product call now (cheap) rather than mid-rollout (expensive).
+   **Cons (apply it):** Requires a product-level decision the plan author may not own — can stall the plan if the call has to bubble up. Wrong target locks in a misleading success signal that's hard to walk back once the rollout dashboard is built around it.
+   **Recommendation:** `no strong opinion` — depends on who owns the checkout KPI. If product has a target already, paste it in. If not, the right move is a 15-minute call with the PM, not a guess from the plan.
+   **To apply:** Get the target from the PM, update the `Goals` section with the metric/threshold/window, then re-run `/auto-review-plan`.
 
 2. **[Watch] Long-term coupling risk** — `Phase 4 — Cleanup`
-   Review finding: cleanup phase leaves the legacy checkout module wired to the new pricing service.
-   Why flagged: advisory — may be acceptable depending on deprecation timeline.
-   To apply: decide whether to decouple now or track as post-launch debt.
+   **What this would change:** Add a Phase 5 that severs the legacy checkout's import of `pricing_service.v2`, replacing it with a stubbed `legacy_pricing` shim, so the legacy module can be deleted on its own deprecation timeline without dragging pricing changes with it.
+   **Pros (apply it):** Legacy can be deleted independently — no surprise blocker when the team finally rips it out next quarter. Avoids the trap where pricing-service refactors keep tripping over a module nobody uses.
+   **Cons (apply it):** Adds a phase and a stub the team has to maintain until deletion. If legacy gets deleted within ~3 months, the stub is wasted work.
+   **Recommendation:** `skip` (confidence: medium) — legacy checkout is on the Q3 delete list per Phase 4's note; a stub for <90 days is overkill. Track as post-launch debt instead.
+   **To apply:** Add a single TODO bullet under `Phase 4 — Cleanup` referencing the coupling so it's not lost, and proceed.
 
 **Oscillations caught:** 0
 **Edit failures:** 0
@@ -169,7 +191,7 @@ After the loop exits, output a single summary. This is the only user-facing outp
 Log: `.claude/auto-review-plan-log.md`
 
 Next: resolve the flagged items above. Re-run `/auto-review-plan` if you make non-trivial edits, then hand the plan to implementation.
-```
+````
 
 For in-conversation targets, append the final revised plan text under a `### Revised plan` heading in the summary so the user can paste it back into plan mode or use it directly.
 
