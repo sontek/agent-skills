@@ -55,12 +55,19 @@ A finding is **auto-applied without prompting** when ALL of these hold:
 
 Otherwise: add to the **flagged-for-approval** bucket and continue the loop. Over-flagging is cheap; over-applying is expensive. When in doubt, flag.
 
-When you flag a finding, capture the dossier *now* while the context is fresh — don't defer it to summary time. For each flagged item, record: a plain-language **What this would change**, concrete **Pros** and **Cons** of applying it (with at least one example each — actual file/line, actual scenario, actual cost), and a **Recommendation** with explicit confidence. The recommendation rule:
+When you flag a finding, capture the dossier *now* while the context is fresh — don't defer it to summary time. For each flagged item, record:
 
-- **Only recommend `apply` or `skip` when you have a real basis** (you've read the surrounding code, you understand the trade-off, you'd defend the call). State confidence as `high` or `medium` and one short reason.
-- **If you don't have a real basis, say `no strong opinion — depends on <the open question>`.** Naming the question is the work — it's what unblocks the user. Do not fabricate a recommendation to look decisive.
+- **Proposal** — exactly one concrete change in plain language; state the precise before → after (e.g., *"replace per-view try/except with `@handle_api_errors` decorator on all 12 views"*). Never frame it as "either A or B" — pick one direction. Before flagging a binary, **check whether the binary is false**: many "A vs B" framings collapse into "A for cases X, B for cases Y" when examined (e.g., "render `0` everywhere" vs "render `—` everywhere" → *"render `0` for true zeros, `—` for ambiguous zeros"*). If a hybrid or selective option is stronger, propose that. The user reads Proposal first; if it's ambiguous or implicitly forces a false choice, the pros/cons that follow are disorienting.
+- **What the user sees** — *required for UI / copy / dashboard / customer-facing changes (incl. template edits, error messages, API responses surfaced to humans); optional for backend-only changes.* Show before/after exactly as the reader will encounter it (rendered text, ASCII tables for tabular UI, side-by-side comparison). For copy/label decisions, separate **what gets rendered** from **what the reader thinks** — both matter, and they are not the same.
+- **Pros if applied** — concrete benefits, each with at least one example (actual file/line, actual call site, actual downstream effect). The lens is the world *after* the proposal lands.
+- **Cons if applied** — concrete costs/risks, each anchored to a specific failure scenario: *what goes wrong, who notices, what it looks like* (actual file/line, actual user, actual moment). Stories beat abstract risk lists. Weak: "could mask a real upstream regression." Strong: *"parser stops sanitizing in v2.0 → our local-sanitizer test still passes → we never notice the actual upstream bug until a user reports a path-traversal exploit in production."*
+- **Recommendation** — pick exactly one form:
+  - `apply` (confidence: high|medium) — one-line reason. Use when you've read the surrounding code, understood the trade-off, and would defend the call.
+  - `skip` (confidence: high|medium) — one-line reason. Same bar.
+  - `apply if <condition>, else skip` (confidence: high|medium) — name the condition that flips the call (e.g., *"apply if `feat/users-v2` has already merged, else skip until it does — sequencing pain otherwise outweighs the cleanup"*). Use when the right call depends on context the user knows and you don't (audience, scope, sequencing).
+  - `no strong opinion — depends on <the open question>`. Use when the input itself doesn't exist yet (e.g., a product call hasn't been made). Naming the question *is* the work — it's what unblocks the user. Do not fabricate a recommendation to look decisive.
 
-Hedge prose like "Consider…", "Worth thinking about…", or "May be acceptable as-is" is not a recommendation — convert it into one of the three forms above before flagging.
+Hedge prose like "Consider…", "Worth thinking about…", or "May be acceptable as-is" is not a recommendation — convert it into one of the four forms above before flagging.
 
 ## Hard-stop on P0
 
@@ -215,32 +222,61 @@ After the loop exits, output a single summary. This is the only user-facing outp
 **Regression tests added:** 2
 **Testable fixes applied without tests (infra missing or slow):** 0
 
-**Flagged for approval (2):**
+**Flagged for approval (3):**
 
-Each flagged item uses this format. Don't omit fields — if pros/cons/recommendation aren't filled in, the user has to ask for them anyway.
+Each flagged item uses this format. Don't omit fields — if pros/cons/recommendation aren't filled in, the user has to ask for them anyway. Skip the optional **What the user sees** field for backend-only changes (items 1 and 2 below); include it for any change a human reads (item 3).
 
 ```
 N. **[Priority] Title** — `location`
-   **What this would change:** 1–2 sentences in plain language. Name the before/after behavior, not just the abstract concept.
-   **Pros (apply it):** concrete benefit(s), with at least one example. e.g., "removes one DB round-trip per request — `views.search` currently runs N+1 over `result.items`."
-   **Cons (apply it):** concrete cost(s) or risk(s), with at least one example. e.g., "12 files touched; conflicts with the in-flight users-API refactor on branch `feat/users-v2`."
-   **Recommendation:** `apply` (confidence: high|medium) — one-line reason. OR `skip` (confidence: …) — one-line reason. OR `no strong opinion` — depends on <the open question>. Pick exactly one. Don't recommend without a basis.
+   **Proposal:** 1–2 sentences naming exactly one concrete change. Precise before → after behavior. Not "either A or B" — pick one direction (or a hybrid, if the binary is false).
+   **What the user sees:** *Required for UI/copy/dashboard/template/error-message changes; omit for backend-only.* Before/after, rendered. Side-by-side ASCII for tabular UI. For copy decisions, also call out the cognitive interpretation (what the reader *thinks* the words mean).
+   **Pros if applied:** concrete benefit(s), each with an example. e.g., "removes one DB round-trip per request — `views.search:42` currently runs N+1 over `result.items`."
+   **Cons if applied:** concrete cost(s) or risk(s), each as a *failure scenario* — what goes wrong, who notices, what it looks like.
+   **Recommendation:** `apply` (conf: high|medium) — reason. OR `skip` (conf: …) — reason. OR `apply if <X>, else skip` (conf: …) — name the condition. OR `no strong opinion — depends on <open question>`. Pick one. Don't recommend without a basis.
    **To apply:** specific next action (e.g., `say "apply #N"`, or `decide on <question>, then re-run /auto-review-code`).
 ```
 
 1. **[P1] Unify error handling across views** — `src/api/*.py`
-   **What this would change:** Replace per-view try/except blocks with a single decorator (`@handle_api_errors`) on each view, returning a uniform `{error, code, request_id}` shape. Today, `users.py` returns `{detail: …}`, `search.py` returns `{message: …}`, and `upload.py` re-raises.
-   **Pros (apply it):** Frontend can drop three error-shape branches in `client/src/api.ts:142`. New views inherit correct logging without each author remembering. Removes ~80 lines of duplicated try/except across the 12 views.
-   **Cons (apply it):** Touches 12 files; conflicts with `feat/users-v2` which is rewriting `users.py` error paths this week. Frontend has to update its error-shape matcher in the same release or it'll log spurious "unknown error shape" warnings.
-   **Recommendation:** `no strong opinion` — depends on whether `feat/users-v2` lands first. If yes, this is straightforward; if no, sequencing pain outweighs the cleanup.
+   **Proposal:** Replace per-view try/except blocks with a single decorator (`@handle_api_errors`) applied to each of the 12 views, returning a uniform `{error, code, request_id}` shape. Today, `users.py` returns `{detail: …}`, `search.py` returns `{message: …}`, and `upload.py` re-raises.
+   **Pros if applied:**
+   - Frontend can drop three error-shape branches in `client/src/api.ts:142`. Example: the `if (err.detail) … else if (err.message) …` ladder collapses to a single branch.
+   - New views inherit correct logging automatically — no future PR can ship a view that forgets to log `request_id`.
+   - Removes ~80 lines of duplicated try/except across the 12 views.
+   **Cons if applied:**
+   - Touches 12 files; conflicts with `feat/users-v2` which is rewriting `users.py` error paths this week. Example: rebasing `feat/users-v2` on top of this becomes a per-line merge dance.
+   - Frontend has to update its error-shape matcher in the same release or it'll log spurious "unknown error shape" warnings against real production traffic.
+   **Recommendation:** `apply if feat/users-v2 has already merged, else skip until it does` (confidence: medium) — sequencing pain on a 12-file refactor outweighs the cleanup if v2 hasn't landed; once v2 is in, the path is clean.
    **To apply:** Confirm the merge order with the users-v2 author, then say "apply #1".
 
 2. **[Sec-Med] Path traversal needs verification** — `src/api/upload.py:24`
-   **What this would change:** Add `os.path.basename(filename)` before joining with the upload directory, plus a regression test asserting `../../etc/passwd` is rejected. Today the filename from the multipart parser is interpolated directly into the destination path.
-   **Pros (apply it):** Closes a path-traversal vector if the upstream parser doesn't already strip separators. Cheap defense-in-depth (one line + one test). Test pins the behavior so future parser swaps can't silently regress it.
-   **Cons (apply it):** If the parser already sanitizes, the change is dead code — minor noise. The test could mask a real upstream regression by passing on the local sanitizer instead of the parser.
+   **Proposal:** Add `os.path.basename(filename)` before joining with the upload directory at `src/api/upload.py:24`, plus a regression test asserting `../../etc/passwd` is rejected. Today the filename from the multipart parser is interpolated directly into the destination path.
+   **Pros if applied:**
+   - Closes a path-traversal vector if the upstream parser doesn't already strip separators. Example: an attacker uploading `filename="../../etc/passwd"` could currently overwrite system files if the parser is permissive.
+   - Cheap defense-in-depth — one line of code plus one test. The test pins the behavior so a future parser swap can't silently regress it.
+   **Cons if applied:**
+   - If the parser already sanitizes, the change is dead code — minor noise in the upload path.
+   - The test could mask a real upstream regression by passing on the local sanitizer instead of the parser. Example: parser stops sanitizing in v2.0 → our test still passes → we never notice the actual upstream bug.
    **Recommendation:** `apply` (confidence: medium) — defense-in-depth is cheap and the regression test catches a future parser swap.
    **To apply:** Say "apply #2", or trace `request.files` to the multipart parser first if you'd rather verify the parser sanitizes before adding a redundant guard.
+
+3. **[UX] Dashboard column header** — `templates/_dashboard_content.jinja2:119`
+   **Proposal:** Rename the column header at `templates/_dashboard_content.jinja2:119` from `"PRs Blocked"` to `"Flaky PRs"` (matching the `Flaky PRs` table title above it).
+   **What the user sees:**
+   ```
+   Before — column shows "PRs Blocked"     After — column shows "Flaky PRs"
+   Job              PRs Blocked            Job              Flaky PRs
+   Test typescript        7                Test typescript        7
+   Test go                3                Test go                3
+   ```
+   *What the user thinks:* `PRs Blocked: 7` reads as a strict promise — *"this job blocked 7 PRs from merging."* `Flaky PRs: 7` reads as a softer claim — *"7 PRs hit a flake from this job."* The metric is a provable lower bound (mixed-outcome same-SHA detection), so "Flaky PRs" is more honest about what the count guarantees.
+   **Pros if applied:**
+   - Matches the table title above the column — readers stop having to mentally translate. Example: today a reader sees a "Flaky PRs" table title and a "PRs Blocked" column and silently maps one to the other; renaming closes that gap.
+   - Honest about the lower-bound nature of the count: a CI engineer can screenshot the dashboard for leadership without overclaiming.
+   **Cons if applied:**
+   - Loses the human-impact framing of "your PR was blocked." Failure scenario: a developer scans the dashboard for the job that hurt them last week, recalling *"I got blocked,"* and skips past the "Flaky PRs" column because the wording doesn't ping the same memory; they leave thinking the dashboard doesn't surface their pain.
+   - Severs the visual link to the org-level "PR Retry Rate" card, which uses the human-impact framing.
+   **Recommendation:** `apply if exec/leadership viewers will read this dashboard, else skip` (confidence: medium) — non-engineers read "Blocked" too literally and we ship a provably-undercount metric; engineers benefit from the human-impact framing and the `<details>` "floor not ceiling" copy already disclaims undercounting.
+   **To apply:** Confirm dashboard audience with the team. If exec viewers, say "apply #3"; otherwise skip.
 
 **Oscillations caught:** 0
 **Verification failures:** 0
