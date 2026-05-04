@@ -62,12 +62,19 @@ A finding is **auto-applied without prompting** when ALL of these hold:
 
 Otherwise: add to the **flagged-for-approval** bucket and continue the loop. Over-flagging is cheap; over-applying is expensive. When in doubt, flag. Plans are cheaper to re-review than to re-litigate, so err toward the user.
 
-When you flag a finding, capture the dossier *now* while the context is fresh — don't defer it to summary time. For each flagged item, record: a plain-language **What this would change**, concrete **Pros** and **Cons** of applying it (with at least one example each — actual phase, actual scenario, actual cost), and a **Recommendation** with explicit confidence. The recommendation rule:
+When you flag a finding, capture the dossier *now* while the context is fresh — don't defer it to summary time. For each flagged item, record:
 
-- **Only recommend `apply` or `skip` when you have a real basis** (you've understood the trade-off, you'd defend the call). State confidence as `high` or `medium` and one short reason.
-- **If you don't have a real basis, say `no strong opinion — depends on <the open question>`.** Naming the question is the work — it's what unblocks the user. Do not fabricate a recommendation to look decisive.
+- **Proposal** — exactly one concrete change in plain language; state the precise before → after (e.g., *"rename the `Goals` heading to `Outcomes`"*). Never frame it as "either A or B" — pick one direction. Before flagging a binary, **check whether the binary is false**: many "A vs B" framings collapse into "A for cases X, B for cases Y" when examined (e.g., "render `0` everywhere" vs "render `—` everywhere" → *"render `0` for true zeros, `—` for ambiguous zeros"*). If a hybrid or selective option is stronger, propose that. The user reads Proposal first; if it's ambiguous or implicitly forces a false choice, the pros/cons that follow are disorienting.
+- **What the user sees** — *required for UI / copy / dashboard / customer-facing changes; optional for backend-only changes.* Show before/after exactly as the reader will encounter it (rendered text, ASCII tables for tabular UI, side-by-side comparison). For copy/label decisions, separate **what gets rendered** from **what the reader thinks** — both matter, and they are not the same. Example: a column labeled `PRs Blocked: 7` *renders* as the literal number, but *reads* as a strict promise ("this job blocked 7 PRs from merging"); a `Flaky PRs: 7` label renders identically but reads as a softer claim.
+- **Pros if applied** — concrete benefits, each with at least one example (actual phase, actual scenario, actual downstream effect). The lens is the world *after* the proposal lands.
+- **Cons if applied** — concrete costs/risks, each anchored to a specific failure scenario: *what goes wrong, who notices, what it looks like.* Stories beat abstract risk lists. Weak: "this might confuse the team." Strong: *"the migration engineer reads `Status: blocked` in the tracker, assumes a hard dependency, blocks their PR for two days waiting on a human who isn't actually needed."*
+- **Recommendation** — pick exactly one form:
+  - `apply` (confidence: high|medium) — one-line reason. Use when you'd defend the call.
+  - `skip` (confidence: high|medium) — one-line reason. Same bar.
+  - `apply if <condition>, else skip` (confidence: high|medium) — name the condition that flips the call (e.g., *"apply if exec/leadership viewers will read this dashboard, else skip — non-engineers read 'Blocked' too literally"*). Use when the right call depends on context the user knows and you don't (audience, scope, sequencing).
+  - `no strong opinion — depends on <the open question>`. Use when the input itself doesn't exist yet (e.g., a target the PM hasn't set). Naming the question *is* the work — it's what unblocks the user. Do not fabricate a recommendation to look decisive.
 
-Hedge prose like "Consider…", "Worth thinking about…", or "May be acceptable" is not a recommendation — convert it into one of the three forms above before flagging.
+Hedge prose like "Consider…", "Worth thinking about…", or "May be acceptable" is not a recommendation — convert it into one of the four forms above before flagging.
 
 ## Hard-stop on "Rethink approach"
 
@@ -146,7 +153,9 @@ Verdict: Ready to implement
 
 ## Final summary (emit to user)
 
-After the loop exits, output a single summary. This is the only user-facing output during the run — no per-finding narration while looping.
+After the loop exits, emit a single user-facing summary. This is the only user-facing output during the run — no per-finding narration while looping.
+
+**Output discipline:** Emit the summary as **rendered markdown directly in chat** — do NOT wrap your output in a code fence. The ` ```markdown ` block below is *documentation* showing the structure; strip the outer fence when emitting so the user sees rendered headings, bold, and inline code rather than a code-block dump. Inside the summary, emit numbered flagged items as live numbered-list markdown — do NOT wrap individual items in code fences. The only place a code fence is appropriate inside a flagged item is the **What the user sees** field when showing literal rendered UI (e.g., a side-by-side ASCII table — see `auto-review-code` Item 3 for a worked example).
 
 ````markdown
 ## Auto-review-plan complete
@@ -160,29 +169,29 @@ After the loop exits, output a single summary. This is the only user-facing outp
 
 **Flagged for approval (2):**
 
-Each flagged item uses this format. Don't omit fields — if pros/cons/recommendation aren't filled in, the user has to ask for them anyway.
-
-```
-N. **[Priority] Title** — `section/phase`
-   **What this would change:** 1–2 sentences in plain language. Name the before/after content, not just the abstract concept.
-   **Pros (apply it):** concrete benefit(s), with at least one example.
-   **Cons (apply it):** concrete cost(s) or risk(s), with at least one example.
-   **Recommendation:** `apply` (confidence: high|medium) — one-line reason. OR `skip` (confidence: …) — one-line reason. OR `no strong opinion` — depends on <the open question>. Pick exactly one.
-   **To apply:** specific next action (e.g., `update <section> with <decision>, then re-run /auto-review-plan`).
-```
+Each item must include all six dossier fields defined in the Auto-apply policy section above (**Proposal**, **What the user sees**, **Pros if applied**, **Cons if applied**, **Recommendation**, **To apply**). Skip the optional **What the user sees** field for backend / process / scope plan changes (the two examples below); include it whenever the plan touches user-facing copy, dashboards, error messages, or any rendered output a human will read — for a worked example, see `auto-review-code` Item 3 (dashboard column rename). Don't omit fields — if pros/cons/recommendation aren't filled in, the user has to ask for them anyway. Emit each item as live numbered-list markdown, not inside a code fence.
 
 1. **[Blocking] Clarify success criteria** — `Goals` section
-   **What this would change:** Replace "users like the new checkout" with a measurable target — e.g., "checkout completion rate ≥ 92% over the 14-day rollout window, p95 latency ≤ 800ms" — and add a `## Success criteria` subsection naming the metric source (Amplitude funnel `checkout_v2`).
-   **Pros (apply it):** Lets the rollout phase actually have a go/no-go gate instead of a vibe check. Makes "is this done?" answerable from a dashboard. Forces the product call now (cheap) rather than mid-rollout (expensive).
-   **Cons (apply it):** Requires a product-level decision the plan author may not own — can stall the plan if the call has to bubble up. Wrong target locks in a misleading success signal that's hard to walk back once the rollout dashboard is built around it.
+   **Proposal:** Replace "users like the new checkout" in the `Goals` section with a measurable target — "checkout completion rate ≥ 92% over the 14-day rollout window, p95 latency ≤ 800ms" — and add a `## Success criteria` subsection naming the metric source (Amplitude funnel `checkout_v2`).
+   **Pros if applied:**
+   - Phase 3's rollout gate becomes mechanical instead of a vibe check. Example: a rollback decision today reads "if it doesn't feel right" — with the threshold it becomes "if completion drops below 92% for 24h, roll back."
+   - "Is this done?" is answerable from a dashboard, so the team doesn't have to schedule a meeting to interpret the result.
+   - Forces the product call *now* (cheap, before code lands) rather than mid-rollout (expensive — requires reverting a partial ship).
+   **Cons if applied:**
+   - Requires a product-level decision the plan author may not own — can stall the plan if the call has to bubble up to the PM. Example: if the checkout PM is on PTO this week, the plan can't move forward.
+   - A wrong target locks in a misleading success signal that's hard to walk back once the rollout dashboard is built around it. Example: shipping with 92% then later learning the historical baseline was 94% turns the rollout into a regression we accidentally celebrated.
    **Recommendation:** `no strong opinion` — depends on who owns the checkout KPI. If product has a target already, paste it in. If not, the right move is a 15-minute call with the PM, not a guess from the plan.
    **To apply:** Get the target from the PM, update the `Goals` section with the metric/threshold/window, then re-run `/auto-review-plan`.
 
 2. **[Watch] Long-term coupling risk** — `Phase 4 — Cleanup`
-   **What this would change:** Add a Phase 5 that severs the legacy checkout's import of `pricing_service.v2`, replacing it with a stubbed `legacy_pricing` shim, so the legacy module can be deleted on its own deprecation timeline without dragging pricing changes with it.
-   **Pros (apply it):** Legacy can be deleted independently — no surprise blocker when the team finally rips it out next quarter. Avoids the trap where pricing-service refactors keep tripping over a module nobody uses.
-   **Cons (apply it):** Adds a phase and a stub the team has to maintain until deletion. If legacy gets deleted within ~3 months, the stub is wasted work.
-   **Recommendation:** `skip` (confidence: medium) — legacy checkout is on the Q3 delete list per Phase 4's note; a stub for <90 days is overkill. Track as post-launch debt instead.
+   **Proposal:** Add a Phase 5 that severs the legacy checkout's import of `pricing_service.v2`, replacing it with a stubbed `legacy_pricing` shim, so the legacy module can be deleted on its own deprecation timeline without dragging pricing changes with it.
+   **Pros if applied:**
+   - Legacy can be deleted independently — no surprise blocker when the team finally rips it out. Example: last quarter's `pricing_service.v1` deletion was held up 6 weeks by exactly this kind of dangling import.
+   - Pricing-service refactors stop tripping over a module nobody uses — every future pricing change saves a "why is legacy importing this?" detour.
+   **Cons if applied:**
+   - Adds a phase and a shim the team has to maintain until the legacy deletion lands. Example: every pricing-service signature change for the next quarter has to update `legacy_pricing` too.
+   - If legacy gets deleted within ~3 months (Q3 target per Phase 4), the shim is wasted work — built, maintained, and thrown away inside one quarter.
+   **Recommendation:** `skip` (confidence: medium) — legacy checkout is on the Q3 delete list per Phase 4's note; a shim for <90 days is overkill. Track as post-launch debt instead.
    **To apply:** Add a single TODO bullet under `Phase 4 — Cleanup` referencing the coupling so it's not lost, and proceed.
 
 **Oscillations caught:** 0
