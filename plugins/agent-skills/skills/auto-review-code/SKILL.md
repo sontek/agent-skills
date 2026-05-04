@@ -206,7 +206,9 @@ Started: 2026-04-21T10:03:12Z
 
 ## Final summary (emit to user)
 
-After the loop exits, output a single summary. This is the only user-facing output during the run — no per-finding narration.
+After the loop exits, emit a single user-facing summary. This is the only user-facing output during the run — no per-finding narration.
+
+**Output discipline:** Emit the summary as **rendered markdown directly in chat** — do NOT wrap your output in a code fence. The ` ```markdown ` block below is *documentation* showing the structure; strip the outer fence when emitting so the user sees rendered headings, bold, and inline code rather than a code-block dump. Inside the summary, emit numbered flagged items as live numbered-list markdown — do NOT wrap individual items in code fences. The only place a code fence is appropriate inside a flagged item is the **What the user sees** field when showing literal rendered UI (e.g., a side-by-side ASCII table — see Item 3 below).
 
 ````markdown
 ## Auto-review-code complete
@@ -224,17 +226,7 @@ After the loop exits, output a single summary. This is the only user-facing outp
 
 **Flagged for approval (3):**
 
-Each flagged item uses this format. Don't omit fields — if pros/cons/recommendation aren't filled in, the user has to ask for them anyway. Skip the optional **What the user sees** field for backend-only changes (items 1 and 2 below); include it for any change a human reads (item 3).
-
-```
-N. **[Priority] Title** — `location`
-   **Proposal:** 1–2 sentences naming exactly one concrete change. Precise before → after behavior. Not "either A or B" — pick one direction (or a hybrid, if the binary is false).
-   **What the user sees:** *Required for UI/copy/dashboard/template/error-message changes; omit for backend-only.* Before/after, rendered. Side-by-side ASCII for tabular UI. For copy decisions, also call out the cognitive interpretation (what the reader *thinks* the words mean).
-   **Pros if applied:** concrete benefit(s), each with an example. e.g., "removes one DB round-trip per request — `views.search:42` currently runs N+1 over `result.items`."
-   **Cons if applied:** concrete cost(s) or risk(s), each as a *failure scenario* — what goes wrong, who notices, what it looks like.
-   **Recommendation:** `apply` (conf: high|medium) — reason. OR `skip` (conf: …) — reason. OR `apply if <X>, else skip` (conf: …) — name the condition. OR `no strong opinion — depends on <open question>`. Pick one. Don't recommend without a basis.
-   **To apply:** specific next action (e.g., `say "apply #N"`, or `decide on <question>, then re-run /auto-review-code`).
-```
+Each item must include all six dossier fields defined in the Auto-apply policy section above (**Proposal**, **What the user sees**, **Pros if applied**, **Cons if applied**, **Recommendation**, **To apply**). Skip the optional **What the user sees** field for backend-only changes (items 1 and 2 below); include it for any change a human reads (item 3). Don't omit fields — if pros/cons/recommendation aren't filled in, the user has to ask for them anyway. Emit each item as live numbered-list markdown, not inside a code fence.
 
 1. **[P1] Unify error handling across views** — `src/api/*.py`
    **Proposal:** Replace per-view try/except blocks with a single decorator (`@handle_api_errors`) applied to each of the 12 views, returning a uniform `{error, code, request_id}` shape. Today, `users.py` returns `{detail: …}`, `search.py` returns `{message: …}`, and `upload.py` re-raises.
