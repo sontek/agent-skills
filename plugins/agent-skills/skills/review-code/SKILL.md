@@ -23,6 +23,18 @@ The rules below apply to both modes unless noted.
 - Don't propose sweeping refactors. Don't demand rigor inconsistent with the rest of the codebase.
 - Phrase findings as discrete, actionable items — not general critiques.
 
+### Bundled refactors (split-PR hygiene)
+
+If the diff does two conceptually independent things (e.g., a feature change *plus* a sweeping rename, or a feature change *plus* introduction of an abstraction motivated by a future PR), flag the split. Indicators:
+
+- PR description says "first of N", "split from #X", "PR A of A/B/C", or names follow-up PRs by branch.
+- A new module/file is introduced *and* simultaneously refactored across many call sites in the same diff.
+- The refactor's stated benefit lives in a *future* PR ("introducing X now so PR B can migrate to Y").
+
+Fix: recommend extracting the refactor into its own PR so each diff has one reason to exist. Even if the bundled refactor is *technically used* in this PR, the reviewer wants to see only what's needed for the behavioral change being shipped.
+
+Tag as `[P2] design — bundled refactor`.
+
 ## Load project guidelines if present
 
 Walk upward from the current working directory until you find a `REVIEW_GUIDELINES.md` file (check `.claude/REVIEW_GUIDELINES.md` first, then `REVIEW_GUIDELINES.md` at repo root). If found, its contents override the defaults below.
@@ -74,6 +86,7 @@ Flag issues that:
 - Off-by-one errors, wrong operator, inverted conditions
 - Race conditions, shared-state hazards, missed awaits
 - Backwards compatibility — breaking API changes without migration path
+- Refactors that look like no-ops but change invariants: `setdefault` vs `=` (conditional vs forced assignment), `or` vs `is None` (falsy vs missing), `dict.get(k)` vs `dict[k]` (silent vs exception), `Optional[T]` defaulting to `None` vs `T` defaulting to a value. When a refactor changes one of these — especially in shared/test infrastructure or env-handling code — flag it even if the new behavior looks "fine".
 
 ### Performance
 
@@ -110,6 +123,10 @@ Flag issues that:
 - Critical user paths covered by end-to-end tests
 - Tests assert on observable behavior, not implementation details
 - No excessive branching/looping inside test bodies
+- **No log-output assertions.** Tests that match log message text (`assert "user not found" in caplog.text`) pin implementation, not behavior. The log string is mutable; the behavior under test is whether the right *thing happened* (return value, raised exception, side effect). Flag and propose asserting on the actual outcome instead.
+- **Parameterize repetitive tests.** When ≥3 test functions differ only in inputs/expected outputs and share the same body shape, propose `@pytest.mark.parametrize` (pytest), `it.each` (Jest), `t.Run` table tests (Go), or the equivalent. Cite the specific test names that should collapse.
+- **No inline imports in tests** unless the import has a stated reason (circular dependency, optional/heavy dependency loaded lazily, monkeypatch ordering). Imports belong at module top. Inline imports without a comment explaining *why* are a code-smell finding.
+- **Idiomatic test-infrastructure setup.** For pytest, env-var setup belongs in `pytest_configure(config)` (runs before conftest module imports), not as module-level side effects in `conftest.py`. Watch for subtle semantic drift in setup helpers — `os.environ.setdefault(k, v)` lets a real CI env var bleed through; `os.environ[k] = v` enforces fakes unconditionally. If the existing convention is direct assignment and a new fixture switches to `setdefault` (or vice versa), flag the isolation change.
 
 ### Code quality
 
@@ -133,6 +150,7 @@ When reviewing new or modified error handling, default to fail-fast. Evaluate ev
 5. Boundary handlers (HTTP routes, CLI entrypoints, supervisors) may translate errors, but must not pretend success or silently degrade.
 6. If a catch exists only to satisfy lint/style without real handling, treat it as a bug.
 7. When uncertain, prefer crashing fast over silent degradation.
+8. **Use existing observability infrastructure.** Before approving any new error-handling block, grep the codebase for an established error reporter (Sentry, Bugsnag, Rollbar, structured logger, in-house `report_error` helper). If one exists and the new catch doesn't route through it, flag the gap — even if the local handling looks otherwise correct. Reviewers should not have to ask "why isn't this going to Sentry?".
 
 ## Priority levels
 
@@ -221,4 +239,4 @@ Rules for the Callouts section:
 
 ## Common patterns to flag
 
-See [references/patterns.md](references/patterns.md) for concrete examples (N+1 queries, missing effect deps, SQL injection, silent error swallowing, language-specific traps like Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources). Load that file when a finding looks like one of those patterns.
+See [references/patterns.md](references/patterns.md) for concrete examples — N+1 queries, missing effect deps, SQL injection, silent error swallowing, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.
