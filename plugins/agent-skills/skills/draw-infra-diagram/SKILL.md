@@ -1,11 +1,13 @@
 ---
 name: draw-infra-diagram
-description: Draw infrastructure architecture diagrams in Mermaid that are clear, debuggable, and customer-friendly. Use when the user asks to "draw an infra diagram", "make a Mermaid diagram of this AWS architecture", "diagram this flow", "build a debugging diagram for support", "where do I look for logs map", or wants a customer-facing or support-oriented architecture map. Covers shape vocabulary, AWS-aligned color palette, region tinting, rendered legends, layout gotchas, DLQ styling, edge labels, pre-write resource-name verification, the render→PDF export pipeline, and the document structure for debugging-oriented infra guides. Not for class/ER/UML diagrams or for reviewing existing diagrams.
+description: Draw AWS / cloud infrastructure architecture diagrams in Mermaid that are clear, debuggable, and customer-friendly. Use when the user asks to "draw an infra diagram", "draw an AWS architecture diagram", "make a Mermaid diagram of this AWS architecture", "diagram this AWS flow", "build a debugging diagram for support", or wants a customer-facing or support-oriented cloud architecture map. AWS specialist on top of `draw-mermaid-diagram` — adds shape vocabulary, AWS-aligned color palette, region tinting, rendered legends, DLQ styling, edge labels, resource-name verification, render→PDF export pipeline, and document structure for debugging-oriented infra guides. For non-infrastructure Mermaid diagrams (sequence, class, ER, state, gantt, generic flowchart), use `draw-mermaid-diagram` instead.
 ---
 
 # Draw Infra Diagram
 
 How to draw infrastructure diagrams in Mermaid that someone can actually use to debug a problem.
+
+This is the AWS / cloud specialist. For sequence diagrams, state machines, class diagrams, ER diagrams, gantt charts, or generic flowcharts, use **`draw-mermaid-diagram`** — it owns the general syntax cheatsheets and the validation tool that the rest of this skill assumes.
 
 ## Core principles
 
@@ -146,9 +148,17 @@ Common: `Triggers`, `Enqueue`, `Publishes`, `Subscribes`, `Fan-out per region`, 
 
 Avoid full sentences. Avoid describing what the next stage does ("processes the message and stores it in the database") — that's the next node's job to convey.
 
-### 10. Render and export
+### 10. Validate and export
 
-Quick syntax check during authoring:
+Quick syntax check during authoring — use the validator from the sibling `draw-mermaid-diagram` skill:
+
+```bash
+${CLAUDE_SKILL_ROOT}/../draw-mermaid-diagram/tools/validate.sh diagram.mmd
+```
+
+Non-zero exit means invalid Mermaid. First run downloads a headless Chromium via Puppeteer (one-time, ~100MB).
+
+For a higher-resolution render with the Mermaid CLI directly:
 
 ```bash
 mmdc -i diagram.mmd -o diagram.png -w 1800
@@ -204,3 +214,7 @@ The symptom-to-diagram index (§5) is the most commonly skipped section and the 
 - Mermaid CLI (`mmdc`): https://github.com/mermaid-js/mermaid-cli
 - AWS Architecture Icons (color reference): https://aws.amazon.com/architecture/icons/
 - `md-to-pdf` (export pipeline): https://github.com/simonhaenisch/md-to-pdf
+
+## Related skills
+
+- **`draw-mermaid-diagram`** — general Mermaid skill. Houses syntax cheatsheets for the non-infra diagram types and the `validate.sh` tool used above.
