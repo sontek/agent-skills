@@ -60,6 +60,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [commit](plugins/agent-skills/skills/commit/SKILL.md) | Conventional commits with strict AI attribution rules (only `Co-Authored-By`) |
 | [create-pr](plugins/agent-skills/skills/create-pr/SKILL.md) | Create PRs; respects repo `PULL_REQUEST_TEMPLATE.md` when present |
 | [iterate-pr](plugins/agent-skills/skills/iterate-pr/SKILL.md) | Iterate on a PR until CI passes and review feedback is addressed |
+| [update-changelog](plugins/agent-skills/skills/update-changelog/SKILL.md) | Add notable user-facing changes since the last tag to `CHANGELOG.md`'s `## Unreleased` section |
 
 ### Code review & audit
 
@@ -82,6 +83,22 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [review-plan](plugins/agent-skills/skills/review-plan/SKILL.md) | Route an existing plan (file or plan-mode draft) through `senior-engineer` and `product-manager` for a judgment pass |
 | [auto-review-plan](plugins/agent-skills/skills/auto-review-plan/SKILL.md) | Loop `review-plan` and auto-apply small blocking edits until the plan is clean; flags structural recommendations for end-of-run approval |
 | [improve-architecture](plugins/agent-skills/skills/improve-architecture/SKILL.md) | Find architectural friction and design module-deepening refactors |
+| [frontend-design](plugins/agent-skills/skills/frontend-design/SKILL.md) | Design distinctive frontend UIs with strong aesthetic direction (greenfield/redesign work) |
+
+### Diagrams
+
+| Skill | Description |
+| --- | --- |
+| [draw-mermaid-diagram](plugins/agent-skills/skills/draw-mermaid-diagram/SKILL.md) | Create and validate Mermaid diagrams of any type (flowchart, sequence, class, ER, state, gantt). Houses `tools/validate.sh` |
+| [draw-infra-diagram](plugins/agent-skills/skills/draw-infra-diagram/SKILL.md) | AWS / cloud architecture specialist on top of `draw-mermaid-diagram` — adds shape vocabulary, color palette, region tinting, debugging-oriented composition |
+
+### Tools & integrations
+
+| Skill | Description |
+| --- | --- |
+| [librarian](plugins/agent-skills/skills/librarian/SKILL.md) | Cache remote git repos at `~/.cache/checkouts/<host>/<org>/<repo>` for stable, throttled-refresh local access |
+| [sentry](plugins/agent-skills/skills/sentry/SKILL.md) | Fetch Sentry issues / events / transactions / logs via the Sentry API for debugging |
+| [uv](plugins/agent-skills/skills/uv/SKILL.md) | Use `uv` for Python in repos that have adopted it — `uv run`, `uv add`, inline script metadata, `uv_build` |
 
 ### Meta
 
@@ -190,6 +207,7 @@ allowed-tools: Read Grep Glob
 - [Agent Skills Specification](https://agentskills.io/specification)
 - [getsentry/sentry-skills](https://github.com/getsentry/sentry-skills) — upstream we fork from
 - [mattpocock/agent-skills](https://github.com/mattpocock/agent-skills) — source of `grill-me`, `improve-architecture`, `plan-refactor`
+- [mitsuhiko/agent-stuff](https://github.com/mitsuhiko/agent-stuff) — source of `librarian`, `update-changelog`, `sentry`, `uv`, `frontend-design`, and the Mermaid validation tool used by `draw-mermaid-diagram` / `draw-infra-diagram`
 
 ## License
 
