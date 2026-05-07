@@ -28,7 +28,7 @@ If you're not sure: a flowchart with action nodes is rarely wrong. Sequence is f
 
 1. **Draft in a standalone `.mmd` file.** Easier to validate than a fenced block inside Markdown.
 2. Write the diagram.
-3. Validate: `./tools/validate.sh diagram.mmd`
+3. Validate: `${CLAUDE_SKILL_ROOT}/tools/validate.sh diagram.mmd`
 4. Once it validates, copy the contents into the target Markdown file as a fenced ```mermaid block.
 
 The validator catches syntax errors before they surface as a broken render in the published doc. See [Validation](#validation) below.
@@ -134,7 +134,7 @@ gantt
 ## Validation
 
 ```bash
-./tools/validate.sh diagram.mmd
+${CLAUDE_SKILL_ROOT}/tools/validate.sh diagram.mmd
 ```
 
 The script invokes `npx -y @mermaid-js/mermaid-cli` to parse and render the diagram. Non-zero exit means invalid syntax. When supported by the diagram type, it also prints an ASCII preview via `beautiful-mermaid`.
@@ -144,7 +144,7 @@ The script invokes `npx -y @mermaid-js/mermaid-cli` to parse and render the diag
 Optional second arg writes the rendered SVG to disk:
 
 ```bash
-./tools/validate.sh diagram.mmd /tmp/diagram.svg
+${CLAUDE_SKILL_ROOT}/tools/validate.sh diagram.mmd /tmp/diagram.svg
 ```
 
 Without it, the SVG goes to a temp file and is cleaned up on exit.

@@ -150,10 +150,10 @@ Avoid full sentences. Avoid describing what the next stage does ("processes the 
 
 ### 10. Validate and export
 
-Quick syntax check during authoring — use the validator from the sibling skill:
+Quick syntax check during authoring — use the validator from the sibling `draw-mermaid-diagram` skill:
 
 ```bash
-plugins/agent-skills/skills/draw-mermaid-diagram/tools/validate.sh diagram.mmd
+${CLAUDE_SKILL_ROOT}/../draw-mermaid-diagram/tools/validate.sh diagram.mmd
 ```
 
 Non-zero exit means invalid Mermaid. First run downloads a headless Chromium via Puppeteer (one-time, ~100MB).
