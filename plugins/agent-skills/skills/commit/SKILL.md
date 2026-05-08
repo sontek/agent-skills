@@ -67,6 +67,7 @@ The header is required. Scope is optional. All lines must stay under 100 charact
 - Use imperative mood and present tense
 - Include motivation for the change
 - Contrast with previous behavior when relevant
+- Skip diff-level details — file paths, function or variable names, line numbers, test counts. The diff already shows those. Describe the change in terms of behavior or intent, not the identifiers in the patch.
 - Use real newlines in commit bodies; never include literal `\n` sequences
 - Never include customer data — customer/org names, user emails, support ticket contents, or PII. Describe the technical symptom, not who hit it. Reference the internal ticket instead (e.g. `Fixes ENG-1234`).
 

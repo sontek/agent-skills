@@ -85,10 +85,20 @@ When there's no repo template, use this structure:
 <any additional context reviewers need>
 ```
 
+**The PR description is read BEFORE the diff, not in addition to it.** A reviewer should be able to skim it in 30 seconds and know what they're about to review and why. Specifics live in the code; the description sets the context they need to read the code well.
+
 **Do NOT include:**
 - Checkbox lists of testing steps (unless the template requires them)
-- Redundant summaries of the diff — reviewers can read the diff
+- **Diff-level details** — anything a reviewer will see by opening the Files tab:
+  - File paths or filenames (e.g., `src/api/auth.py`)
+  - Function, class, variable, or constant names (e.g., `_filter_config`, `DEFAULT_CONFIG`)
+  - Line numbers
+  - Test counts ("8 new tests"), test file paths, or individual test names
+  - Itemized restatements of changes that mirror the diff structure ("renamed X, added Y, moved Z")
+  - Implementation play-by-play ("rewrite the prompt in 7 places", "pipe X into Y")
 - Customer data — customer/org names, user emails, support ticket contents, or PII. Describe the technical symptom, not who hit it. Reference the internal ticket (e.g. `Fixes ENG-1234`). Many PRs are visible on public repos.
+
+It's fine to name the *subject* of the change when that's the clearest framing ("deprecate the old auth middleware") — the rule is don't duplicate the diff, not never name an identifier.
 
 **Do include:**
 - Clear explanation of what and why
@@ -111,6 +121,26 @@ EOF
 - `ref: Refactor something`
 
 ## PR Description Examples
+
+### What "summary, not diff" looks like
+
+❌ **Too verbose — duplicates the diff:**
+
+> Adds `SUPPORTED_INFERENCE_KEYS` capability map and `_filter_inference_config`
+> in `src/stacklet/jun0/bedrock.py` so `_start_converse_stream` strips any
+> `inferenceConfig` keys the chosen model rejects. Flips two inline
+> `inference_config={"temperature": 0}` callers (`_auto_execute_and_summarize`,
+> `_summarize_results`) to use `DEFAULT_INFERENCE_CONFIG`. Adds 8 new unit tests
+> in `tests/unit/jun0/test_bedrock.py` parametrized over opus/sonnet/haiku/unknown.
+
+✅ **Right scope — what changed and why:**
+
+> Filter unsupported `inferenceConfig` keys per model family before each Bedrock
+> call. Fixes jun0 crashing with `temperature is deprecated` on every non-router
+> LLM call when deployed against Opus.
+>
+> Picked an explicit per-model capability map over retry-on-error: behavior is
+> deterministic and testable, and future per-model quirks are a one-row update.
 
 ### Feature PR
 
