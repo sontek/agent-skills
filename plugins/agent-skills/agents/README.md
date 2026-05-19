@@ -46,6 +46,14 @@ Offensive + defensive security engineer. Thinks like an attacker, produces HIGH-
 
 **Auto-invokes when:** user says "review as a product manager", "PM review", "UX review", "is this the right feature", "prioritize these", etc. Invoked by the `review-plan` skill when the plan has user-facing surface.
 
+### researcher
+
+Web research specialist. Produces source-cited findings with explicit confidence levels and flags for conflicting or stale sources. Runs in isolated context so raw search results stay out of the caller's window. Doesn't make architectural decisions or write code — its output informs the caller's decision, it doesn't replace it.
+
+**Auto-invokes when:** caller needs an external fact, library comparison, API behavior, RFC summary, "what's the current best practice for X" — anything that benefits from web search + synthesis with citations.
+
+**Uses:** `WebSearch`, `WebFetch` for external sources; `Read`, `Grep`, `Glob`, `Bash` for local cross-referencing.
+
 ## Adding a new agent
 
 1. Create `<role-noun-name>.md` in this directory

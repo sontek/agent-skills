@@ -88,6 +88,12 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [draw-mermaid-diagram](plugins/agent-skills/skills/draw-mermaid-diagram/SKILL.md) | Create and validate Mermaid diagrams of any type (flowchart, sequence, class, ER, state, gantt). Houses `tools/validate.sh` |
 | [draw-infra-diagram](plugins/agent-skills/skills/draw-infra-diagram/SKILL.md) | AWS / cloud architecture specialist on top of `draw-mermaid-diagram` — adds shape vocabulary, color palette, region tinting, debugging-oriented composition |
 
+### Session management
+
+| Skill | Description |
+| --- | --- |
+| [handoff](plugins/agent-skills/skills/handoff/SKILL.md) | Write a structured `HANDOFF_<slug>.md` so a fresh session can continue the current work without re-reading the transcript. Use before `/clear` or when starting a new window mid-task |
+
 ### Tools & integrations
 
 | Skill | Description |
@@ -114,6 +120,7 @@ Agents are persona subagents that run autonomously in isolated context. They use
 | [senior-engineer](plugins/agent-skills/agents/senior-engineer.md) | 15+ year SaaS engineer — opinionated architecture, scalability, maintainability (opus) |
 | [security-auditor](plugins/agent-skills/agents/security-auditor.md) | Offensive + defensive security engineer — HIGH-confidence findings with PoC (opus) |
 | [product-manager](plugins/agent-skills/agents/product-manager.md) | 15+ year PM with UX sensibility — user journeys, scope discipline, prioritization (opus) |
+| [researcher](plugins/agent-skills/agents/researcher.md) | Web research specialist — source-cited findings with explicit confidence and conflicting-source flags (opus) |
 
 See [agents/README.md](plugins/agent-skills/agents/README.md) for invocation triggers and when to use each one.
 

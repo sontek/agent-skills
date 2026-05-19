@@ -1,6 +1,6 @@
 ---
 name: plan-refactor
-description: Create a detailed refactor plan with tiny commits via user interview. Writes the plan to a local REFACTOR_PLAN_<short-name>.md file. Use for restructuring existing code without changing behavior. For NEW features or phased additions, use plan-implementation instead. If Claude Code is in plan mode, plan mode itself already produces an in-conversation plan via ExitPlanMode — use review-plan on that draft instead of invoking this skill.
+description: Create a detailed refactor plan with tiny commits via user interview. Writes the plan to a local REFACTOR_PLAN_<short-name>.md file. Use when the user asks to "plan a refactor", "create a refactor plan", "plan how to refactor", "restructure" existing code, "extract" a module, or wants tiny-commit decomposition of an existing module without changing behavior. For NEW features or phased additions, use plan-implementation instead. If Claude Code is in plan mode, plan mode itself already produces an in-conversation plan via ExitPlanMode — use review-plan on that draft instead of invoking this skill.
 ---
 
 This skill is invoked when the user wants to plan a refactor. Go through the steps below. You may skip steps if you don't consider them necessary.
@@ -15,15 +15,25 @@ This skill is invoked when the user wants to plan a refactor. Go through the ste
 
 5. Hammer out the exact scope of the implementation. Work out what you plan to change and what you plan not to change.
 
-6. Look in the codebase to check for test coverage of this area of the codebase. If there is insufficient test coverage, ask the user what their plans for testing are.
+6. Write binary **Ideal State Criteria** (ISC) — yes/no checkable conditions that define when the refactor is done. Refactors don't change behavior, so ISC for a refactor focuses on structural outcomes and anti-criteria (behavior that must remain unchanged):
 
-7. Break the implementation into a plan of tiny commits. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working."
+   - `ISC-1: Public API surface of `auth/` module is unchanged (same exported names, same signatures)`
+   - `ISC-2: All existing tests pass without modification`
+   - `ISC-A-1: No new module added under `auth/` that depends on `legacy/`'s internals`
 
-8. Write the plan to a local file named `REFACTOR_PLAN_<short-name>.md` at the repo root (e.g., `REFACTOR_PLAN_extract-auth-middleware.md`). Use the template below.
+   Always write at least one anti-criterion — for refactors, "what must not change" is usually the load-bearing part.
 
-   Don't auto-publish the plan to GitHub/JIRA/etc. If the user wants it as a GitHub issue, JIRA ticket, or team-tracker entry afterwards, they'll tell you explicitly — many repos (OSS, internal tools, solo projects) don't want an issue created just so someone can refactor.
+7. Look in the codebase to check for test coverage of this area of the codebase. If there is insufficient test coverage, ask the user what their plans for testing are. A refactor without tests is a guess.
 
-9. After the plan file is written, offer to run the `review-plan` skill for a `senior-engineer` judgment pass (DRY, coupling, commit ordering, missed seams). This is the cheapest point to catch architectural mistakes — before any code is written. Apply any blocking findings by editing the plan file before starting the refactor.
+8. Break the implementation into a plan of tiny commits. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working."
+
+9. Write a **Premortem** — 2–5 load-bearing assumptions the refactor relies on and 2–5 realistic failure modes. Ask the user whether to mitigate or accept each failure mode before committing the plan to disk.
+
+10. Write the plan to a local file named `REFACTOR_PLAN_<short-name>.md` at the repo root (e.g., `REFACTOR_PLAN_extract-auth-middleware.md`). Use the template below.
+
+    Don't auto-publish the plan to GitHub/JIRA/etc. If the user wants it as a GitHub issue, JIRA ticket, or team-tracker entry afterwards, they'll tell you explicitly — many repos (OSS, internal tools, solo projects) don't want an issue created just so someone can refactor.
+
+11. After the plan file is written, offer to run the `review-plan` skill for a `senior-engineer` judgment pass (DRY, coupling, commit ordering, missed seams, ISC coverage, premortem honesty). This is the cheapest point to catch architectural mistakes — before any code is written. Apply any blocking findings by editing the plan file before starting the refactor.
 
 Use the following template for the plan body:
 
@@ -37,9 +47,27 @@ The problem that the developer is facing, from the developer's perspective.
 
 The solution to the problem, from the developer's perspective.
 
+## Ideal State Criteria
+
+Binary, yes/no checkable conditions that define when the refactor is done. Include explicit anti-criteria for behavior that must remain unchanged.
+
+### Structural Outcomes
+- [ ] ISC-1: ...
+
+### Anti-Criteria
+- [ ] ISC-A-1: No ...
+
 ## Commits
 
 A LONG, detailed implementation plan. Write the plan in plain English, breaking down the implementation into the tiniest commits possible. Each commit should leave the codebase in a working state.
+
+## Premortem
+
+### Load-bearing assumptions
+- <assumption the refactor relies on — and how we'd notice if it's wrong>
+
+### Realistic failure modes
+- <what could go wrong> — Mitigation: ... | Accepted because: ...
 
 ## Decision Document
 

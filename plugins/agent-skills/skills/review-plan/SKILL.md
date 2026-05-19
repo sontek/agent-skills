@@ -53,6 +53,30 @@ short — the agents do their own deeper exploration.
 Note whether the plan has user-facing surface (UI, API contracts,
 user-visible flows). This decides whether to run the PM pass.
 
+### 2a. Check plan structure for missing load-bearing sections
+
+Before delegating, scan the plan for these structural elements. Their
+absence is itself a finding worth surfacing — hand-written or plan-mode
+drafts often skip them:
+
+- **Binary Ideal State Criteria (ISC)** — yes/no checkable conditions
+  including at least one anti-criterion ("must NOT do X"). Subjective
+  criteria like "should be fast" or "handle errors gracefully" don't
+  count. If ISC are missing or all subjective, flag as a blocking
+  concern.
+- **Premortem** — load-bearing assumptions and realistic failure
+  modes called out explicitly. A plan that reads as if everything
+  will work the first time is hiding risk. If absent, flag.
+- **Reconnaissance / current-state findings** — relevant files,
+  conventions, and gotchas the plan respects. If the plan reasons in
+  the abstract without grounding in the actual codebase, flag.
+- **Per-task specificity** — each task should be implementable
+  without guessing. If tasks are one-liners with no reference,
+  constraints, or acceptance criteria, flag.
+
+Surface these in the final report under a dedicated "Plan structure
+gaps" subsection so the user can patch them before re-reviewing.
+
 ### 3. Delegate to senior-engineer
 
 Use the Task tool with `subagent_type: agent-skills:senior-engineer`.
@@ -65,6 +89,11 @@ Include a one-paragraph summary of the current-state code you observed
 and explicit asks: DRY / duplication risk, coupling, leaky abstractions,
 missing seams, scalability concerns, phase ordering, missing quality
 gates, under-scoped testing, risky migrations.
+
+Also ask it to evaluate plan structure: are ISC binary and
+verifiable, do anti-criteria exist, is the premortem honest about
+load-bearing assumptions, are per-task references / constraints /
+acceptance criteria specific enough to implement without guessing.
 
 Ask it to separate "resolve before starting" from "worth watching."
 
@@ -96,6 +125,11 @@ findings during implementation.
 ## Plan Review: <plan filename or "plan mode draft">
 
 **Verdict:** Ready to implement / Revise before starting / Rethink approach
+
+### Plan structure gaps
+Missing or weak load-bearing sections (binary ISC, anti-criteria,
+premortem, reconnaissance, per-task specificity). Omit the heading if
+none apply.
 
 ### Blocking concerns
 Items to resolve before implementation starts. Each linked to the
