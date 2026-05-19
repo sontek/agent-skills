@@ -61,6 +61,78 @@ return JSON.parse(data);  // let it throw
 | All        | TOCTOU (check-then-act)         | Race conditions                |
 | All        | Unclosed resources              | File/connection leaks          |
 
+## Codebase type aliases — use them instead of bare primitives
+
+When the codebase has a shared alias for a value's shape, new code (including tests) should adopt it.
+
+```python
+# Bad — bare dict in a test helper, but the codebase already has a JSONDict alias
+def _state(**overrides) -> dict:
+    ...
+
+def test_thing():
+    captured: dict = {}
+    ...
+
+# Good
+from app.types import JSONDict  # wherever the codebase keeps shared aliases
+
+def _state(**overrides) -> JSONDict:
+    ...
+
+def test_thing():
+    captured: JSONDict = {}
+    ...
+```
+
+Threshold for "established alias": `git grep -E ': (JSONDict|UserId|...) ' -- '*.py'` returns ≥3 hits across adjacent files. Below that, the alias may be experimental — don't force it.
+
+Generalizes to other shapes:
+
+- `dict` / `list` / `tuple` / `set` → typed alias (`JSONDict`, `Headers`, etc.)
+- raw `str` for a closed set of values → `Literal["a", "b", "c"]` or `StrEnum`
+- raw `int`/`str` IDs → `NewType("UserId", int)` or branded type
+
+Watch for the asymmetric case: production code uses the alias, but a new test helper or test-local variable falls back to the bare primitive. That's the most common slip.
+
+## Trivial helper / premature abstraction
+
+A new method whose body is one statement, takes no arguments beyond `self`, and is called from one site — the helper buys nothing over inlining.
+
+```python
+# Smell — 4 lines, single call site, all inputs from self
+class Node:
+    def run(self) -> None:
+        ...
+        self._log_complete()
+
+    def _log_complete(self) -> None:
+        self.log.info(
+            f"Node:{self.name} Completed",
+            extra={"node": self.name, "category": self.category},
+        )
+
+# Good — inline at the call site
+class Node:
+    def run(self) -> None:
+        ...
+        self.log.info(
+            f"Node:{self.name} Completed",
+            extra={"node": self.name, "category": self.category},
+        )
+```
+
+Flag when ALL hold:
+
+- Method body ≤ 3 statements (often just 1).
+- All inputs are already attributes of `self` (the method doesn't compose arguments).
+- Called from ≤ 2 sites in the diff.
+- The call site would be equally readable inlined.
+
+**Exempt:** methods that establish a stable extension point with planned subclass overrides in the same diff; methods that hide non-obvious computation.
+
+If the same logging/formatting shape appears at 3+ call sites, keep the helper but move it to a shared mixin/utility and justify it by the call-site count.
+
 ## Test-code idioms
 
 ### Python — repetitive tests should be parameterized

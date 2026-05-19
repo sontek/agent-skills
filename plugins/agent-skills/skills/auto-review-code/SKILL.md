@@ -5,12 +5,14 @@ description: Automatically iterate review-code and code-simplifier until no more
 
 # Auto Review Code
 
-Loop: `review-code` → auto-apply safe fixes → `review-security` → auto-apply safe fixes → `code-simplifier` agent → auto-apply safe fixes, repeat until convergence or escalation. Collects risky changes into a single end-of-run approval bucket so the user isn't prompted per-finding.
+Loop: `code-reviewer` agent → auto-apply safe fixes → `security-auditor` agent → auto-apply safe fixes → `code-simplifier` agent → auto-apply safe fixes, repeat until convergence or escalation. Collects risky changes into a single end-of-run approval bucket so the user isn't prompted per-finding.
+
+All three reviewers run as sub-agents via the Task tool — never inline in the caller's context. This keeps the review independent of whoever invoked auto-review-code.
 
 ## When to use
 
 - User says "auto-review-code", "auto-fix", "clean up until it's clean", or similar
-- User wants to stop manually alternating `review-code`, `review-security`, and the `code-simplifier` agent
+- User wants to stop manually alternating `review-code`, `review-security`, and the `code-simplifier` agent (which route to `code-reviewer`, `security-auditor`, and `code-simplifier` sub-agents respectively)
 - Cleaning a feature branch before opening a PR
 
 ## When NOT to use
@@ -26,7 +28,7 @@ Same as `review-code`. Pick one before starting; default `branch`.
 - **`branch` (default)** — Scope is branch changes vs. main.
 - **`paths`** — Scope is an explicit list of files or directories reviewed as-is. Requires the invoker to provide the list; do not default to whole-repo.
 
-Pass the selected mode through to `review-code`, `review-security`, and the `code-simplifier` agent each round so scopes stay aligned.
+Pass the selected mode and scope through to each sub-agent (`code-reviewer`, `security-auditor`, `code-simplifier`) every round so scopes stay aligned.
 
 ## Auto-apply policy
 
@@ -52,6 +54,8 @@ A finding is **auto-applied without prompting** when ALL of these hold:
    - Altering an error message asserted on in tests, parsed by callers, or part of a public API contract (grep tests for the message before applying).
    - Tightening validation on a path that currently accepts values matching the old contract — even if the values look "obviously invalid" — because callers may rely on the laxness.
    - Changing the return type or shape of a public function.
+   - **Inlining a helper method called from production code**, even when the helper is trivial (`structure.trivial-helper-method`, `structure.pass-through-functions`). The change is mechanical, but the reviewer may have introduced the helper deliberately as an extension point or to document intent. Flag with the call-site count and an inline preview in the dossier. Test-only helpers ARE auto-inlinable.
+   - **Replacing a bare-primitive type annotation with a codebase alias on a public function signature** (`typing.codebase-alias-missed`). It's a public-API contract change even when the alias is structurally equivalent (e.g., `JSONDict` aliases `dict[str, Any]`) — callers may have downstream annotations that depend on the original type. Test helpers, test-local variables, and private/internal functions ARE auto-applicable.
 
 Otherwise: add to the **flagged-for-approval** bucket and continue the loop. Over-flagging is cheap; over-applying is expensive. When in doubt, flag.
 
@@ -119,15 +123,15 @@ Do NOT spend time standing up test infrastructure inside the loop. That's a sepa
 
 For each round (cap at 5):
 
-1. **Review phase.** Run the `review-code` skill in the configured mode. Capture all findings with fingerprints (see below).
+1. **Review phase.** Invoke the `code-reviewer` agent via the Task tool (`subagent_type: agent-skills:code-reviewer`) with the configured mode and scope. Capture all findings with fingerprints (see below).
 2. **Triage findings.** For each finding, classify as: `p0-halt`, `auto-apply`, or `flag-for-approval`. If any `p0-halt`, escalate immediately and exit the loop. For each `flag-for-approval` finding, build the What / Pros / Cons / Recommendation dossier per the Auto-apply policy section before continuing — do not defer it to summary time.
 3. **Check oscillation.** For each `auto-apply` candidate, check if the same fingerprint was already auto-applied in a previous round. If yes, move it to `flag-for-approval` with a note ("oscillation: applied in round N, re-flagged in round M") — do not apply again.
 4. **Apply review fixes.** For each `auto-apply` fix, classify as testable or not (see "Test-first for testable fixes"). For testable fixes, write the failing test first, confirm it fails, apply the fix, confirm it passes. For non-testable fixes, apply directly. After each fix, run any cheap local verification available (type check, lint). If verification or the new test fails, revert both the fix and the test, and flag the finding.
-5. **Security phase.** Run the `review-security` skill against the same scope. Map its severities to the auto-apply policy:
+5. **Security phase.** Invoke the `security-auditor` agent via the Task tool (`subagent_type: agent-skills:security-auditor`) against the same scope. Map its severities to the auto-apply policy:
    - **Critical → P0 hard-stop.** RCE, SQL injection to data, auth bypass, hardcoded production secrets. Escalate to the user immediately and exit the loop.
    - **High → P1.** Eligible for auto-apply if criteria 2–6 hold; otherwise flag. Security-driven changes (parameterizing queries, escaping output, adding allow-list validation against an injection or SSRF vector) count as auto-applicable behavior changes — they remove exploitability rather than altering documented behavior.
-   - **Medium → flag for approval.** Often surfaces as `Needs Verification` from `review-security` — these are open questions, not concrete fixes. Add to the flagged bucket with the verification question intact.
-   - **Low** is not reported by `review-security`.
+   - **Medium → flag for approval.** Often surfaces as `Needs Verification` from the agent — these are open questions, not concrete fixes. Add to the flagged bucket with the verification question intact.
+   - **Low** is not reported by the agent.
 
    Apply the same triage (step 2), oscillation (step 3), and TDD-where-testable (step 4) rules. Most security findings are testable: write a failing test that demonstrates the exploit (for injection/IDOR/SSRF: exercise the vulnerable path with attacker-controlled input and assert it's rejected), apply the fix, confirm the test passes.
 6. **Simplify phase.** Invoke the `code-simplifier` agent via the Task tool (`subagent_type: code-simplifier`) against the same scope. The agent returns a per-file change report; treat each entry as a finding, triage with the same policy and oscillation check. Simplifier findings are usually non-testable refactors — apply directly, relying on existing tests as the regression guard. If a simplifier finding changes behavior rather than preserving it, treat it as testable and TDD it.
@@ -140,7 +144,7 @@ Stop when any of these hit:
 
 - **Convergence** — A full round (review phase + security phase + simplify phase) produced zero auto-applied fixes. This is the normal success exit.
 - **Max rounds** — 5 rounds completed. Note the cap was hit in the summary; may indicate a deeper issue worth user review.
-- **P0 hard-stop** — Exit to user for direction. Triggered by either a `review-code` P0 finding or a `review-security` Critical finding.
+- **P0 hard-stop** — Exit to user for direction. Triggered by either a `code-reviewer` P0 finding or a `security-auditor` Critical finding.
 - **Oscillation** — A finding was auto-applied in an earlier round and has returned. Move to flagged bucket with oscillation note and continue; if the same fingerprint oscillates twice, exit the loop immediately with the log attached.
 - **Verification failure loop** — If three consecutive fix attempts fail verification, stop and escalate. Something in the review, security, or simplifier output is producing broken fixes.
 
@@ -168,7 +172,7 @@ Mode: branch
 Scope: main..HEAD (15 files)
 Started: 2026-04-21T10:03:12Z
 
-## Round 1 — review-code
+## Round 1 — code-reviewer
 
 - [P2] src/api/users.py:42 | quality | dead-import
   - action: auto-applied (non-testable: quality)
@@ -177,7 +181,7 @@ Started: 2026-04-21T10:03:12Z
 - [P1] src/api/*.py | design | unify-error-handling-across-views
   - action: flagged (touches 12 files — exceeds local threshold)
 
-## Round 1 — review-security
+## Round 1 — security-auditor
 
 - [High] src/api/search.py:88 | security | sql-injection-search-query
   - action: auto-applied (test: tests/api/test_search.py::test_rejects_quote_injection — added, failed before, passes after)
@@ -189,11 +193,11 @@ Started: 2026-04-21T10:03:12Z
 - src/api/users.py:60 | simplify | redundant-wrapper
   - action: auto-applied (non-testable: refactor — relying on existing tests)
 
-## Round 2 — review-code
+## Round 2 — code-reviewer
 
 - (no findings)
 
-## Round 2 — review-security
+## Round 2 — security-auditor
 
 - (no findings)
 
@@ -278,15 +282,15 @@ Log: `.claude/auto-review-code-log.md`
 Next: review the flagged items above. Run the normal `review-code` or `review-security` skills on any that need deeper analysis.
 ````
 
-## Invoking sub-skills and sub-agents
+## Invoking sub-agents
 
-This skill orchestrates three sub-capabilities per round, in order:
+This skill orchestrates three sub-agents per round, in order. All three run via the Task tool in isolated context — never inline in the caller's context.
 
-1. **`review-code`** — invoke as a sub-skill in the configured mode (`branch` or `paths`).
-2. **`review-security`** — invoke as a sub-skill in the same mode. It accepts the same `branch` / `paths` scope; pass it through.
-3. **`code-simplifier`** — invoke via the Task tool with `subagent_type: "code-simplifier"`. This is an agent, not a skill: it runs in isolated context and returns a per-file change report. Pass the same scope so it focuses on the right files.
+1. **`code-reviewer`** — `subagent_type: "agent-skills:code-reviewer"`. Configure with the chosen mode (`branch` or `paths`) and scope. Pass the diff range or path list, any caller-supplied "don't flag X" notes, and a pointer to `REVIEW_GUIDELINES.md` if present.
+2. **`security-auditor`** — `subagent_type: "agent-skills:security-auditor"`. Configure with the same mode and scope. Pass the code-type and language signals so the agent knows which OWASP references to load, plus any caller-supplied trust-boundary notes.
+3. **`code-simplifier`** — `subagent_type: "agent-skills:code-simplifier"`. Configure with the same scope so it focuses on the right files. Returns a per-file change report.
 
-For each phase, apply the sub-skill or sub-agent's output per the auto-apply policy above. Do not re-implement their checklists — follow each one's own rules for what to flag and how to phrase findings.
+For each phase, apply the agent's output per the auto-apply policy above. Do not re-implement their checklists — follow each one's own rules for what to flag and how to phrase findings.
 
 Pass the mode and scope through to each invocation so they operate on the same code the auto-review-code loop is working on.
 

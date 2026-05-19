@@ -117,6 +117,69 @@ function getUserName(user) {
 
 **Exempt:** when the wrapper adds types, naming, or is part of a public API contract.
 
+### structure.trivial-helper-method (severity: medium)
+
+A new method (often on a base/parent class) whose body is a single statement — typically a `log.info(...)` with formatted args, a `setattr`, or a one-line transform composed entirely of `self.*` attributes.
+
+```python
+# Smell — single call site, all inputs from self, call site reads fine inlined
+class Node:
+    def run(self) -> None:
+        ...
+        self._log_complete()
+
+    def _log_complete(self) -> None:
+        self.log.info(
+            f"Node:{self.name} Completed",
+            extra={"node": self.name, "category": self.category},
+        )
+
+# Good — inline
+class Node:
+    def run(self) -> None:
+        ...
+        self.log.info(
+            f"Node:{self.name} Completed",
+            extra={"node": self.name, "category": self.category},
+        )
+```
+
+Flag when ALL of:
+
+- Body ≤ 3 statements (often 1).
+- Inputs are all `self.*` — no composed arguments.
+- ≤ 2 call sites in the current diff.
+- Call site reads as well or better inlined.
+
+**Exempt:** deliberate extension points with subclass overrides in the same diff; methods hiding non-obvious computation; helpers called from 3+ sites with identical shape (those earn their keep).
+
+### typing.codebase-alias-missed (severity: medium)
+
+A new declaration uses a bare primitive container (`dict`, `list`, `tuple`, `set`) or raw `str`/`int` where the codebase has an established type alias for that shape.
+
+```python
+# Bad — bare dict, but the codebase has a JSONDict alias used across siblings
+def _state(**overrides) -> dict:
+    ...
+captured: dict = {}
+
+# Good
+from app.types import JSONDict
+def _state(**overrides) -> JSONDict:
+    ...
+captured: JSONDict = {}
+```
+
+Before flagging, grep adjacent files (`git grep -E ': (JSONDict|UserId|...) '`) to confirm the alias is established (≥3 hits in sibling files). Generalizes to:
+
+- `dict`/`list`/`tuple`/`set` → typed alias.
+- Raw `str` for a closed value set → `Literal[...]` or `StrEnum`.
+- Raw `int`/`str` IDs → `NewType` brands.
+
+**Exempt:** intentionally generic helpers (a JSON-agnostic merge utility that should accept any dict). The rule fires when the local value is *semantically* in the alias's domain.
+
+Common slip: production code uses the alias, but a new test helper falls back to the bare primitive. Test code should use the same aliases.
+
 ### comments.placeholder-comments (severity: strong)
 
 Regex flags:
