@@ -47,19 +47,26 @@ Reviews need two disciplines: *coverage* (look at everything in scope) and *narr
 
 1. Enumerate scope. List every file/path in scope. In `branch` mode, read each affected file *completely* — not just the diff hunk. In `paths` mode, read each listed file or directory completely. Context outside the hunk is often where the real bug hides.
 
+2. Calibrate to the codebase. Before judging style, typing, abstraction, or helper-density findings against universal defaults, sample 3–5 adjacent files (siblings + nearest parent module + the same test directory) and answer:
+   - **Typing discipline.** Are local variables, function parameters, and return types annotated everywhere, only at module boundaries, or rarely? Are there shared type aliases (e.g., `JSONDict`, `UserId`, `Timestamp`) in use? Try `git grep -E '^(from .* import .*|[A-Z][A-Za-z0-9]+ *(:|=)[^=])' -- '<adjacent-glob>'` to surface aliases and per-line annotation density.
+   - **Helper-method density.** Does the module favor short helper methods or inline bodies? What's the typical method length?
+   - **Test-helper rigor.** Do existing helpers in the same test file/dir carry type annotations? Do they reuse the same shared aliases as production code?
+
+   Apply the codebase's bar, not a universal default. If the codebase annotates locals, demand annotated locals in the diff. If existing test helpers use a shared alias, flag new test helpers that drop back to bare `dict`/`list`/`str`. If the codebase keeps logic inline, raise the bar on any new tiny helper method.
+
 **For each candidate finding — narrowing:**
 
-2. List 5-7 plausible issues from the scope.
-3. Gather evidence for each (check call sites, related tests, types).
-4. Narrow to 1-2 most likely *real* issues per category.
-5. Validate — read the code, don't speculate.
+3. List 5-7 plausible issues from the scope.
+4. Gather evidence for each (check call sites, related tests, types).
+5. Narrow to 1-2 most likely *real* issues per category.
+6. Validate — read the code, don't speculate.
 
 **Before writing findings — coverage:**
 
-6. Confirm each in-scope file was read and each applicable category from the checklist below was considered.
-7. If you couldn't verify something with evidence (a call site outside scope, an external dependency, a permission class defined elsewhere), surface the gap. Only mention real gaps — no boilerplate "everything verified" notes.
+7. Confirm each in-scope file was read and each applicable category from the checklist below was considered.
+8. If you couldn't verify something with evidence (a call site outside scope, an external dependency, a permission class defined elsewhere), surface the gap. Only mention real gaps — no boilerplate "everything verified" notes.
 
-8. Only then write findings.
+9. Only then write findings.
 
 This prevents both guess-and-check cycles and confident "looks clean" reports on skimmed code. The obvious issue is often not the real one.
 
@@ -114,7 +121,8 @@ Flag issues that:
 - Does the change fit existing architecture?
 - Are component interactions logical?
 - Are abstractions justified by current use, not speculative future use?
-- Does it introduce a wrapper/abstraction without clear value?
+- **Trivial helper methods.** A new method whose body is ≤ 3 statements (often 1), takes no arguments beyond `self`, and is called from ≤ 2 sites — especially when the call site would read just as well inlined (e.g., `self.log.info(f"Node:{self.name} done", extra={...})` is no harder to read than `self._log_complete()`). Inline it unless it's a deliberate extension point with subclass overrides in the same diff. Be stricter when the codebase generally keeps logic inline (see "Calibrate to the codebase" in Investigation approach).
+- **Premature shared abstraction.** A new base-class method, mixin, or utility introduced for a single concrete caller. Wait until the second caller appears — abstractions earn their keep through *use*, not anticipation. A bundled "future PR will use this" justification is a [bundled-refactor](#bundled-refactors-split-pr-hygiene) signal, not a justification.
 
 ### Testing
 
@@ -133,6 +141,7 @@ Flag issues that:
 - Naming conveys intent
 - Comments explain *why* (non-obvious constraints), not *what* (obvious from code)
 - Error messages reference stable identifiers, not mutable text
+- **Codebase type aliases.** If the codebase has a shared alias for a value's shape (`JSONDict` for JSON-ish dicts, `UserId` for IDs, `Literal[...]`/`StrEnum` for closed string sets, `NewType` brands), use it instead of the bare primitive (`dict`, `str`, `int`, etc.). Grep adjacent files (`git grep -E ': (JSONDict|UserId|...) ' -- '<lang-glob>'`) before approving any new `: dict` / `: list` / `: str` parameter, return type, or local annotation; if the alias is established (≥3 hits in adjacent files), flag the bare-primitive declaration. Applies to test code too — test helpers should use the same aliases as production.
 
 ### Side effects
 
@@ -239,4 +248,4 @@ Rules for the Callouts section:
 
 ## Common patterns to flag
 
-See [references/patterns.md](references/patterns.md) for concrete examples — N+1 queries, missing effect deps, SQL injection, silent error swallowing, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.
+See [references/patterns.md](references/patterns.md) for concrete examples — N+1 queries, missing effect deps, SQL injection, silent error swallowing, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), codebase type aliases vs. bare primitives, trivial helper / premature abstraction, test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.

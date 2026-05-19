@@ -52,6 +52,8 @@ A finding is **auto-applied without prompting** when ALL of these hold:
    - Altering an error message asserted on in tests, parsed by callers, or part of a public API contract (grep tests for the message before applying).
    - Tightening validation on a path that currently accepts values matching the old contract — even if the values look "obviously invalid" — because callers may rely on the laxness.
    - Changing the return type or shape of a public function.
+   - **Inlining a helper method called from production code**, even when the helper is trivial (`structure.trivial-helper-method`, `structure.pass-through-functions`). The change is mechanical, but the reviewer may have introduced the helper deliberately as an extension point or to document intent. Flag with the call-site count and an inline preview in the dossier. Test-only helpers ARE auto-inlinable.
+   - **Replacing a bare-primitive type annotation with a codebase alias on a public function signature** (`typing.codebase-alias-missed`). It's a public-API contract change even when the alias is structurally equivalent (e.g., `JSONDict` aliases `dict[str, Any]`) — callers may have downstream annotations that depend on the original type. Test helpers, test-local variables, and private/internal functions ARE auto-applicable.
 
 Otherwise: add to the **flagged-for-approval** bucket and continue the loop. Over-flagging is cheap; over-applying is expensive. When in doubt, flag.
 
