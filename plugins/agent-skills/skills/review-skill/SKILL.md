@@ -5,103 +5,69 @@ description: Audit existing skills (SKILL.md files) against the write-skill auth
 
 # Review Skill
 
-Audit existing skills for compliance with the authoring standards in `write-skill`. Same rubric, applied as a checklist after-the-fact instead of as a guide during creation.
+Route a skill audit through the `skill-reviewer` agent in isolated context. The skill resolves which skill directories are in scope; the agent applies the write-skill rubric and reports findings.
+
+## When to invoke
+
+- "Review this skill", "audit this SKILL.md", "check skill quality before merge"
+- Compliance pass after a skill refactor or consolidation
+- Run after `write-skill` ships a new skill, before opening the PR
+
+Don't use for:
+
+- Reviewing code, not skills — use `review-code`
+- Authoring a new skill from scratch — use `write-skill`
 
 ## Modes
 
-Pick one before starting. Default to `branch` if not specified.
+Pick one before invoking. Default to `branch` if unspecified.
 
-- **`branch`** — Review skills modified in the current branch's diff vs. main. Find changed skills via `git diff main...HEAD --name-only | grep -E '/skills/[^/]+/(SKILL\.md|references/|scripts/)'`.
-- **`paths`** — Review an explicit list of skill directories provided by the invoker.
+- **`branch` (default)** — Review skills modified in the current branch's diff vs. main. Find changed skill directories via `git diff main...HEAD --name-only | grep -E '/(skills|agents)/[^/]+/' | awk -F/ '{print $1"/"$2"/"$3"/"$4}' | sort -u`.
+- **`paths`** — Review an explicit list of skill or agent directories/files provided by the caller.
 
-For each skill, the unit of review is the whole skill directory (SKILL.md + `references/` + `scripts/`), not just the SKILL.md file.
+## Process
 
-## Severity classification
+### 1. Resolve scope
 
-Classify every finding into one of three tiers:
+- **`branch` mode:** compute the changed skill/agent directories from the diff (command above). For each directory, the agent will read SKILL.md + `references/` + `scripts/` (or the agent file directly).
+- **`paths` mode:** take the explicit directory or file list from the caller.
 
-- **Real gap** — violates a hard requirement; would degrade auto-loading or break references. Fix before merge.
-- **Observation** — soft guidance not met; worth flagging, decide whether to fix or defer.
-- **Pre-existing** — issue was there before the change being reviewed. Note separately so it isn't blamed on the diff.
+### 2. Ground the review
 
-The pre-existing tier matters: when reviewing a single change, don't punish the author for issues they didn't introduce. Surface them so the team can address them later.
+Light pass for context-forwarding only. Do NOT apply the rubric yourself.
 
-## Rubric
+- Note whether each item in scope is a skill (`plugins/agent-skills/skills/<name>/SKILL.md`) or an agent (`plugins/agent-skills/agents/<name>.md`) — the agent uses different sub-rubrics for each.
+- Capture any caller-supplied "this skill is intentionally large, the inline content is core workflow" notes — these flip what would otherwise be observations into known-accepted state.
 
-### Frontmatter
+### 3. Delegate to the skill-reviewer agent
 
-- `name` is kebab-case, 1-64 chars, matches the directory name.
-- `description` is ≤ 1024 chars, written in third person.
-- First sentence: what the skill does.
-- Includes "Use when…" with concrete trigger keywords.
-- Optional fields valid (`model` ∈ {sonnet, opus, haiku}; `allowed-tools` space-delimited; `license` is name or path).
-- YAML is valid (no tabs, balanced quotes).
+Invoke via the Task tool with `subagent_type: agent-skills:skill-reviewer`. Include in the prompt:
 
-### Trigger discrimination — most important check
+- The **mode** (`branch` or `paths`).
+- The list of skill/agent paths in scope.
+- Per-item caller notes — verbatim.
 
-Synthesize 3-5 user phrasings that SHOULD trigger this skill and 3-5 that should NOT (similar-sounding but distinct, e.g. "review the plan" vs. "review the code").
+Example prompt skeleton:
 
-For each SHOULD phrase, check whether the description has a keyword the agent would match on. If a SHOULD phrase has no matching keyword, that's a **real gap** — extend the description's "Use when…" clause.
+```
+Run a skill audit in `branch` mode.
 
-Most skill drift comes from descriptions failing to cover their actual scope after refactors. Catching this is the primary value of this skill.
+In scope:
+- plugins/agent-skills/skills/review-code/ (skill)
+- plugins/agent-skills/skills/review-security/ (skill)
+- plugins/agent-skills/agents/code-reviewer.md (agent — new in this branch)
 
-### Structure
+Caller notes:
+- review-code/SKILL.md was just slimmed to a coordinator — large size is now expected
+  to be ~60-90 lines, not the prior ~250.
 
-- SKILL.md ≤ ~100 lines, OR remaining content is core to the workflow (modes, process, output format).
-- Bulky reference content (pattern catalogs, exhaustive checklists, command references) lives in `references/*.md`.
-- Concrete examples present.
-- No time-sensitive info (dates, current versions of dependencies).
-- Consistent terminology throughout.
-
-### References resolve
-
-- Every `references/*.md` link in SKILL.md resolves to an existing file.
-- Every `scripts/*.py` invocation points to a script that exists in `scripts/`.
-- Every other skill mentioned by name (e.g., "hand off to the `commit` skill") exists at `plugins/agent-skills/skills/<name>/`.
-- References are one level deep (don't nest `references/sub/`).
-
-### Skill vs. agent
-
-- Skill is at `plugins/agent-skills/skills/<name>/SKILL.md`; agent is at `plugins/agent-skills/agents/<name>.md`.
-- Naming matches type: skills are `verb-object`, agents are `role-noun`.
-- Frontmatter matches type (agents use `model` + `tools`; skills use `allowed-tools` if any).
-
-## Reporting
-
-For each reviewed skill, output:
-
-```markdown
-## <skill-name>
-
-**Verdict:** clean | needs attention
-
-### Real gaps
-- **[check name]** — Why it's a problem. Recommended fix: [concrete change].
-
-### Observations
-- **[check name]** — What to flag. Recommended action: [fix or defer].
-
-### Pre-existing (not from this change)
-- **[check name]** — Note for later, not blocking.
-
-### Trigger test
-- SHOULD trigger: [list]
-- SHOULD NOT trigger: [list]
-- Discrimination: pass | fail
+Follow your rubric: frontmatter, trigger discrimination (most important),
+structure, references resolve, skill-vs-agent typing. Classify findings as
+real gap / observation / pre-existing.
 ```
 
-If reviewing multiple skills, emit a one-line summary table at the top, then per-skill sections.
+### 4. Return the agent's output
 
-## What NOT to flag
+Pass the agent's findings back to the caller verbatim. Don't summarize, re-prioritize, or filter.
 
-- Stylistic preferences (heading style, list formatting) — focus on rubric compliance.
-- Inline content that looks "splittable" but is core to the workflow.
-- Trigger phrasings the model handles via synonyms naturally — only flag missing triggers when the gap would actually degrade auto-loading.
-- Pre-existing issues outside the changed scope, unless asked for a full audit.
-
-## Output discipline
-
-- Real gaps first, observations second, pre-existing last.
-- One paragraph per finding maximum.
-- Always include a concrete recommended fix — "the description should say X" beats "the description is too narrow."
-- Match `review-code`'s matter-of-fact tone — helpful, not accusatory.
+For follow-up ("expand finding #2", "propose the description rewrite"), invoke the agent again with the relevant context.
