@@ -68,6 +68,7 @@ ls -1 .github/PULL_REQUEST_TEMPLATE/*.md 2>/dev/null
 - Fill in the template's fields (checklist items, required sections) as applicable.
 - Add why/context information in whatever section the template permits (e.g., "Description", "Motivation", or a free-form area).
 - Do NOT discard or bypass the template — the repo owners put it there for a reason (team conventions, compliance requirements).
+- **Brevity inside the template:** Fill sections with substantive content only. If a required section has nothing meaningful to add, write one sentence — don't pad with template-shaped filler. A 4-section template filled with thin paragraphs produces a worse PR description than the same template with two real sentences per section. The 30-second-skim goal applies even when the template is mandatory.
 
 **If no template is present:** Use the default structure in Step 4.
 
@@ -106,6 +107,12 @@ It's fine to name the *subject* of the change when that's the clearest framing (
 - Context that isn't obvious from the code
 - Notes on specific areas that need careful review
 
+### Step 4a: AI-attribution policy applies here
+
+If the PR body inherits from the commit body (common — many repos set this convention in `CLAUDE.md`), the `commit` skill's no-AI-attribution default applies here too. PR descriptions never include `Co-Authored-By` or any AI marker by default. The same opt-in conditions as the `commit` skill apply (user explicitly asked, repo docs require it, or recent history shows it's the norm).
+
+The same hard prohibitions apply, and they matter more here because the PR body is the more public surface: even when attribution is opted in, never add "Generated with" / tool-attribution footers, "AI-assisted" labels, or links to AI tools. `Co-Authored-By` is the only acceptable form.
+
 ### Step 5: Create the PR
 
 ```bash
@@ -127,20 +134,67 @@ EOF
 ❌ **Too verbose — duplicates the diff:**
 
 > Adds `SUPPORTED_INFERENCE_KEYS` capability map and `_filter_inference_config`
-> in `src/stacklet/jun0/bedrock.py` so `_start_converse_stream` strips any
+> in `src/app/llm/bedrock.py` so `_start_converse_stream` strips any
 > `inferenceConfig` keys the chosen model rejects. Flips two inline
 > `inference_config={"temperature": 0}` callers (`_auto_execute_and_summarize`,
 > `_summarize_results`) to use `DEFAULT_INFERENCE_CONFIG`. Adds 8 new unit tests
-> in `tests/unit/jun0/test_bedrock.py` parametrized over opus/sonnet/haiku/unknown.
+> in `tests/unit/llm/test_bedrock.py` parametrized over opus/sonnet/haiku/unknown.
 
 ✅ **Right scope — what changed and why:**
 
 > Filter unsupported `inferenceConfig` keys per model family before each Bedrock
-> call. Fixes jun0 crashing with `temperature is deprecated` on every non-router
-> LLM call when deployed against Opus.
+> call. Fixes the LLM service crashing with `temperature is deprecated` on every
+> non-router call when deployed against Opus.
 >
 > Picked an explicit per-model capability map over retry-on-error: behavior is
 > deterministic and testable, and future per-model quirks are a one-row update.
+
+### Filling a mandatory template tightly
+
+When `CLAUDE.md` or a `PULL_REQUEST_TEMPLATE.md` mandates sections, fill them — but the brevity rule still applies. Same change, same required `### what / ### why / ### testing / ### docs` template, two ways:
+
+❌ **Template filled with padding — every section inflated to a paragraph:**
+
+> ### what
+> This pull request introduces a change to how inference configuration is
+> handled within the Bedrock integration layer. Specifically, it adds logic
+> that inspects the configuration and removes any keys that are not supported
+> by the target model before the request is dispatched to the service.
+>
+> ### why
+> The motivation behind this change is that we were encountering issues where
+> certain models do not accept all of the inference configuration parameters
+> that we were previously sending, which resulted in errors being raised at
+> runtime whenever those parameters were present in the request payload.
+>
+> ### testing
+> Testing was performed by adding a comprehensive suite of new unit tests that
+> exercise the new filtering behavior across a representative set of model
+> families, ensuring that supported keys are retained and unsupported keys are
+> stripped as expected under each scenario.
+>
+> ### docs
+> No documentation changes were required as part of this pull request because
+> the change is internal to the inference layer and does not alter any
+> externally visible behavior or public interface that would need documenting.
+
+✅ **Same template, substantive sentences only:**
+
+> ### what
+> Strip `inferenceConfig` keys a model doesn't support before each Bedrock call.
+>
+> ### why
+> Opus rejects `temperature`, which crashed every non-router call. Picked an
+> explicit per-model capability map over retry-on-error: deterministic and a
+> one-row update for future quirks.
+>
+> ### testing
+> New unit tests cover supported/unsupported keys per model family.
+>
+> ### docs
+> None — internal change, no public-interface impact.
+
+The bad version is longer but says less: every sentence restates the section header. The good version respects the same mandatory template while staying skimmable.
 
 ### Feature PR
 
@@ -202,9 +256,13 @@ Reference issues in the PR body:
 - **Explain the why** — Code shows what; description explains why
 - **Mark WIP early** — Use draft PRs (`--draft`) for early feedback
 
-## Editing Existing PRs
+## Updating an Existing PR's Title or Description (re-run Steps 1–4, then patch)
 
-If you need to update a PR after creation, use `gh api` instead of `gh pr edit`:
+**When updating an existing PR's description, run Steps 1–4 first as if creating a fresh PR.** The same rules apply: respect the repo template (Step 3), keep sections tight (Step 3 brevity rule), no AI attribution (Step 4a). The `gh api PATCH` mechanics below are the last step; the composition rules above come first.
+
+This matters most for vague requests like "simplify the description" or "clean up the PR body." Do not jump straight to `gh api PATCH` with a hand-written description — that path strips the template and brevity discipline. Re-detect the template, recompose within it, then patch.
+
+Use `gh api` instead of `gh pr edit`:
 
 ```bash
 # Update PR description
