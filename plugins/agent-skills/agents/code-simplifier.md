@@ -196,6 +196,61 @@ These indicate incomplete thinking. Either finish the implementation or delete t
 
 Leftover `// TODO: implement`, `// FIXME`, `// XXX` with no explanation. Either complete the work or add meaningful context (why it's a TODO, when to address).
 
+Also catches **labeled** TODOs that look intentional but encode forward-looking out-of-scope work:
+
+```python
+# Bad — the label makes them look intentional, but they're still forward-looking debt
+TODO(scope-field): when RouteDecision.scope lands, tighten the assertion
+FIXME(skills): adopt the skill runtime when it stabilizes
+```
+
+Flag any `TODO`/`FIXME`/`XXX`/`HACK` regardless of label. Force the author to resolve it inline now, file a ticket and reference it (`# See ENG-1234`), or move it to a plan file.
+
+**Exempt:** ticket-referenced workaround comments where the ticket is the load-bearing context (`# Workaround for ENG-1234`, not `TODO(ENG-1234): do X someday`).
+
+### comments.docstring-rationale (severity: medium)
+
+Module or function docstrings that explain WHY a design was chosen over alternatives, restate what the code does, or run past a one-sentence purpose statement.
+
+```python
+# Bad
+"""Helper for X.
+
+This module does Y rather than Z because Z is async and has side effects we
+don't want. The parity test fires if a future refactor moves auto-injection.
+"""
+
+# Good
+"""Helper for X."""
+```
+
+Flag when:
+
+- A module docstring runs > 3 lines AND the first sentence already states the purpose.
+- A function docstring runs > 2 lines arguing for the design, or an inline comment runs > 2 lines explaining design intent rather than a non-obvious WHY.
+
+**Exempt:** hidden constraints, subtle invariants, workarounds with bug citations, public-API contracts with versioned interfaces.
+
+### comments.change-narration (severity: medium)
+
+Comments that narrate past iterations or future plans rather than describing the code as it stands.
+
+```python
+# Bad
+# 13 sequential calls at 4s each was 53s; capping at 5 collapses to 8s
+# X used to be Y; moved to Z because ...
+# When the foo field lands (separate PR), tighten this assertion
+```
+
+The first belongs in the commit body that introduced the change. The second is `git blame`'s job. The third is a forward-looking TODO in disguise.
+
+Flag bare:
+
+- Comparative language: "was X, now Y", "used to", "previously", "currently" + a change description.
+- Forward-looking: "when X lands", "in a future PR", "next upgrade", "once X stabilizes".
+
+**Exempt:** comments anchored to a ticket reference or a reproducible incident.
+
 ### organization.barrel-file-density (severity: weak)
 
 `index.ts` / `mod.rs` / similar files that do nothing but re-export. Fine in small doses; suspicious when every directory has one with no other purpose. Prefer direct imports.
