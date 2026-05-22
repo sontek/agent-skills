@@ -43,6 +43,10 @@ Always dispatch **`code-reviewer`** and **`security-auditor`**. Add specialists 
 |---|---|
 | Django code (`models.py`, `views.py`, `urls.py`, DRF, `from django`) | `django-access-reviewer`, `django-perf-reviewer` |
 | `.github/workflows/*.yml` | `gha-security-reviewer` |
+| IaC (`*.tf`, `*.tofu`, `infra/`) | `iac-reviewer` |
+| DB layer (migrations, raw SQL, `import sqlalchemy`/`sqlmodel`, `cursor.execute`/`text(`) | `sql-reviewer` |
+
+`sql-reviewer` and `django-perf-reviewer` can both match a Django-ORM diff that also touches raw SQL; dispatch both — the coalesce step (5) deduplicates and treats agreement as corroboration.
 
 ### 3. Ground the review
 
@@ -65,12 +69,14 @@ Merge the raw findings into one deduplicated report:
 - **Normalize severity to one ruler.** Each agent uses its own scale; map them onto a shared `P0`–`P3` band so the report sorts cleanly and downstream tooling (e.g. `auto-review-code`) can triage uniformly. This is scale-mapping, not second-guessing — keep each agent's native label in the line.
 - **Don't re-review.** Trust each agent's call; your job is consolidation, not a fresh opinion.
 
+The IaC and SQL reviewers already emit `P0`–`P3`, so their bands carry over directly.
+
 | Source severity | Normalized |
 |---|---|
-| code-reviewer `[P0]`; security / GHA **Critical**; access bypass enabling cross-user/tenant data read or write | **P0** |
-| code-reviewer `[P1]`; security / GHA **High**; other IDOR / access-control gaps; Django perf **CRITICAL** (N+1, unbounded queryset) | **P1** |
-| code-reviewer `[P2]`; security / GHA **Medium** or "Needs verification"; Django perf **HIGH** (missing index, write loop) | **P2** |
-| code-reviewer `[P3]`; anything advisory | **P3** |
+| code-reviewer `[P0]`; security / GHA **Critical**; access bypass enabling cross-user/tenant data read or write; sql-reviewer `[P0]` (injection reachable from untrusted input) | **P0** |
+| code-reviewer `[P1]`; security / GHA **High**; other IDOR / access-control gaps; Django perf **CRITICAL** (N+1, unbounded queryset); iac / sql-reviewer `[P1]` (apply-failure, migration/DDL or transaction corruption) | **P1** |
+| code-reviewer `[P2]`; security / GHA **Medium** or "Needs verification"; Django perf **HIGH** (missing index, write loop); iac / sql-reviewer `[P2]` | **P2** |
+| code-reviewer `[P3]`; iac / sql-reviewer `[P3]`; anything advisory | **P3** |
 
 Carry "Needs verification" findings through at their normalized band with the verification question intact — don't silently drop them.
 
