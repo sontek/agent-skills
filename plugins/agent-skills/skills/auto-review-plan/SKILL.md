@@ -76,6 +76,8 @@ When you flag a finding, capture the dossier *now* while the context is fresh �
 
 Hedge prose like "Consider…", "Worth thinking about…", or "May be acceptable" is not a recommendation — convert it into one of the four forms above before flagging.
 
+- **To apply** — the concrete next action the user takes to accept this finding (e.g., *"get the target from the PM, then re-run `/auto-review-plan`"*). This is what turns a flagged item from informative into actionable; the worked examples in the final summary all end with it.
+
 ## Hard-stop on "Rethink approach"
 
 If `review-plan` returns a verdict of `Rethink approach`, stop the loop immediately. Do not auto-apply anything from that round. Show the full review to the user and wait for direction. "Rethink" means the plan has a problem that tactical edits won't fix — it deserves a thinking pass, not a reflex edit.
@@ -215,6 +217,6 @@ If the user interrupts mid-round with a correction (e.g., "don't touch the Goals
 ## Related skills
 
 - **review-plan** — the single-shot version; this skill is a loop around it
-- **auto-review-code** — the code-side analog; same loop pattern for `review-code` + `review-security` + `code-simplifier`
+- **auto-review-code** — the code-side analog; same loop pattern, layered on `review-code` (+ a `code-simplifier` pass)
 - **plan-implementation** / **plan-refactor** — create the plan this skill hardens
 - **grill-me** — use *before* the plan is written for upfront clarification
