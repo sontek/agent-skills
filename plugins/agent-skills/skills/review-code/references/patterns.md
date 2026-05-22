@@ -2,6 +2,33 @@
 
 Reference patterns for `review-code`. Load this file when a finding looks like one of the patterns below — the example shows the exact shape and the suggested fix style.
 
+## Blast radius — a change that breaks code outside the diff
+
+The highest-severity misses are bugs the diff *causes* in a file it never touches. The diff looks self-consistent; the break is at a caller, a sibling reference, or a handler elsewhere. Search the whole repo for what depends on what the diff changed (see "Trace the blast radius" in the agent's Investigation approach).
+
+```python
+# In the diff — a template gains a new placeholder:
+PROMPT = "Answer for {user} given {history}"   # was: "Answer for {user}"
+
+# NOT in the diff — a second caller formats the same template directly,
+# bypassing the helper that supplies `history`:
+def quick_answer(user: str) -> str:
+    return PROMPT.format(user=user)            # now raises KeyError: 'history'
+```
+
+Find it before it ships:
+
+```bash
+# template placeholder set changed → who else formats this template?
+rg -n 'PROMPT\.format|\.format\(' --type py
+# renamed/removed symbol or a contract string literal → grep the OLD value
+rg -n 'old_function_name|"identify-resources"'
+# structural variant (every .format call regardless of receiver)
+ast-grep --pattern '$X.format($$$)' --lang python    # if available; else the rg above
+```
+
+Per change-type: **renamed/removed symbol** → grep the old name; **contract string literal** (enum value, event name, placeholder name) → grep the literal; **template placeholder set** → grep `.format`/render sites and other callers; **new/re-raised exception** → grep `except` clauses on the raise→handler path; **changed signature** → grep call sites. Flag only breakage the diff *causes* — not pre-existing issues in those files.
+
 ## Python/Django — N+1 query
 
 ```python
