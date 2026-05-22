@@ -162,6 +162,26 @@ If the same logging/formatting shape appears at 3+ call sites, keep the helper b
 
 ## Test-code idioms
 
+### Test pins the wired behavior
+
+When a diff threads a new argument, count, or branch through, the test must assert *that specific thing* — not just that the path runs. Otherwise removing the wiring leaves the test green.
+
+```python
+# Diff wires `bedrock_client` into the call.
+# Bad — exercises the path, never asserts the new arg arrived. Drop the
+# `bedrock_client=` kwarg and this test still passes.
+def test_invokes(monkeypatch):
+    captured = {}
+    monkeypatch.setattr(mod, "invoke", lambda **kw: captured.update(kw))
+    node.run()
+    assert captured["model_id"] == "m"      # only checks the pre-existing arg
+
+# Good — pin the newly-wired argument
+    assert captured["bedrock_client"] is fake_client
+```
+
+Flag the missing assertion and name the exact call/value to pin. Same shape for a new retry count (`assert planner.call_count == MAX_RETRIES`) or a new branch (assert the branch's distinct side effect).
+
 ### Python — repetitive tests should be parameterized
 
 ```python
@@ -270,3 +290,67 @@ If a project-wide error reporter exists and the new catch doesn't route through 
 
 > [P2] error handling — bypasses existing error reporter
 > `<file:line>` swallows the error locally. The codebase already routes errors through `<reporter>` (see `<file:line>`). Add `<reporter>.captureException(err)` (or equivalent) before the local fallback so this failure surfaces in the existing dashboards.
+
+## LLM / prompt-rendering hazards
+
+For code that builds prompts, renders templates over model/user content, or streams model output. These pass tests on clean inputs and fail on real ones. (No dedicated reviewer dispatches for these — the generalist applies them when the diff touches prompt/model code.)
+
+### Template rendering over brace-bearing content
+
+`str.format()` (and `%`-formatting) treat `{...}` in the *data* as placeholders. Untrusted or model-generated content routinely contains braces (JSON `{"k": v}`, SQL `{schema}`, code), so formatting it raises `KeyError`/`ValueError` and crashes the request.
+
+```python
+# Bad — user/model text flows through .format(); a brace in it crashes
+prompt = TEMPLATE.format(history=chat_history, result=row_json)
+
+# Good — only substitute trusted placeholders; inject untrusted content
+# without re-parsing it for braces
+prompt = TEMPLATE.replace("{history}", chat_history).replace("{result}", row_json)
+# or build with a method that doesn't reinterpret the data (e.g. f-string at a
+# single trusted site, or a templating engine with autoescaping)
+```
+
+Flag any `.format(...)`/`%`/`.format_map` whose arguments include user input, model output, DB rows, or chat history. Watch for a `.format()` call placed *outside* a fail-open `try` that's supposed to guarantee the path never crashes.
+
+### Structural-tag / sentinel escaping (prompt injection)
+
+When a prompt delimits sections with sentinels (`<chat_history>…</chat_history>`, `### SYSTEM ###`), untrusted content placed inside must have those sentinels escaped — otherwise a crafted message closes the section early or forges a new one (prompt injection), and any logic that locates the section by `find("<tag>")` breaks.
+
+```python
+# Bad — user text dropped between sentinels unescaped
+block = f"<chat_history>{user_text}</chat_history>"
+
+# Good — neutralize the sentinel set in untrusted content first
+block = f"<chat_history>{escape_sentinels(user_text)}</chat_history>"
+```
+
+Flag when a new sentinel/structural tag is introduced but the escaping routine (or its allow-list) isn't updated to cover it.
+
+### Self-closing delimiter
+
+Wrapping content in a delimiter that the content itself can contain ends the wrapper early.
+
+```python
+# Bad — response often contains a ```sql ... ``` fence, which closes this one
+judge_input = f"```\n{response_text}\n```"
+
+# Good — use a delimiter the payload can't contain (longer/random fence,
+# or a non-Markdown sentinel)
+fence = "`" * 8
+judge_input = f"{fence}\n{response_text}\n{fence}"
+```
+
+### Streaming / finalization on the error path
+
+A streamed response usually shows a loading indicator that a `finally`/finalize step clears. If the model call can raise *before* finalize runs, the indicator sticks forever.
+
+```python
+# Bad — exception skips the line that clears the indicator
+streaming_message = start_stream()
+result = invoke_model(...)         # raises → indicator never cleared
+streaming_message.finalize()
+
+# Good — finalize in a finally / context manager
+async with finalize_on_exit(streaming_message):
+    result = invoke_model(...)
+```

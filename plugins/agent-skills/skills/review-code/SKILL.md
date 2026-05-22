@@ -53,6 +53,7 @@ Always dispatch **`code-reviewer`** and **`security-auditor`**. Add specialists 
 Light pass only — do NOT review the code yourself.
 
 - Read the branch summary / PR description if available (`gh pr view --json title,body` when a PR exists).
+- **Claims audit.** When the PR description states concrete numbers, defaults, or behavioral claims ("defaults to 8 GB", "lowers the timeout to 30s", "now retries 3 times"), spot-check them against the diff and forward any mismatch to the agents as a candidate finding — the description may describe an earlier revision. Don't audit prose intent, only checkable claims.
 - Capture any caller "don't flag this, it's intentional" notes verbatim.
 - Note whether `REVIEW_GUIDELINES.md` exists (the agents load it; just confirm it's there).
 
@@ -88,3 +89,7 @@ Output: group by normalized priority (P0 first), one finding per line, anchored 
 ```
 
 The `file:line | category | slug` portion is a stable fingerprint downstream tools rely on. Keep `branch`-mode Human Reviewer Callouts as a trailing section. For follow-up ("explain #2", "go deeper on the security findings"), re-invoke the relevant agent rather than answering from your own judgment.
+
+## What this review optimizes for
+
+The goal is catching the **P1 class** — runtime crashes, broken deploys/migrations, and security-boundary regressions — not driving any external review bot to zero findings. Many low-severity bot comments (a duplicated constant, a mutable default that already has a guard, an unnecessary formatter-skip comment) are low value, and bots produce false positives and retract findings too. Spend the review's attention on what would actually break in production; don't pad the report to look thorough.
