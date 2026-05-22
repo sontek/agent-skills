@@ -14,18 +14,28 @@ gh pr view --json number,url,headRefName
 
 ## Line-anchored review comments (preferred)
 
-Inline comments attach to a file + line in the PR diff. Post them as a single review so the author gets one notification, not N:
+Inline comments attach to a file + line in the PR diff. Post them as a single review so the author gets one notification, not N.
+
+**Use a JSON payload via `--input`, not repeated `-f`/`-F` flags.** The flag form (`-f 'comments[][path]=...' -F 'comments[][line]=...'`) does not reliably pair fields into the same comment object — it commonly fails with a 422 (`position … Expected value to not be null`, `body … Expected value to not be null`). Build the array as JSON and pipe it in:
 
 ```bash
-gh api repos/{owner}/{repo}/pulls/{number}/reviews \
-  -f event=COMMENT \
-  -f body="<optional overall summary>" \
-  -f 'comments[][path]=src/orders/api.py' \
-  -F 'comments[][line]=42' \
-  -f 'comments[][body]=**blocking** — `lookup_customer` returns None on a miss, so `customer.email` will throw here. Guard it or return early?'
+cat > /tmp/review.json <<'EOF'
+{
+  "event": "COMMENT",
+  "body": "<optional overall summary, or omit>",
+  "comments": [
+    {
+      "path": "src/orders/api.py",
+      "line": 42,
+      "body": "**blocking** — `lookup_customer` returns None on a miss, so `customer.email` will throw here. Guard it or return early?"
+    }
+  ]
+}
+EOF
+gh api repos/{owner}/{repo}/pulls/{number}/reviews --input /tmp/review.json -q '.html_url'
 ```
 
-Repeat the `comments[][...]` triplet (path, line, body) for each approved comment in the same call. `line` is the line number in the file's new version; for a comment on the old side use `side=LEFT`. To anchor a multi-line comment, add `start_line` plus `start_side`.
+Add one object per approved comment. `line` is the line number in the file's **new** version and must fall inside the PR diff (verify before posting — see SKILL.md step 4); for a comment on the old side add `"side": "LEFT"`. To anchor a multi-line comment, add `"start_line"` plus `"start_side"`. Mind shell-quoting of backticks and apostrophes in bodies — the heredoc above (quoted `'EOF'`) avoids interpolation; building the JSON with the Write tool sidesteps quoting entirely.
 
 `suggestion` blocks post as normal comment bodies — GitHub renders a ` ```suggestion ` fenced block as a one-click "commit suggestion" button automatically.
 
