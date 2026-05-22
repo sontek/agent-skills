@@ -43,12 +43,17 @@ Always dispatch **`code-reviewer`** and **`security-auditor`**. Add specialists 
 |---|---|
 | Django code (`models.py`, `views.py`, `urls.py`, DRF, `from django`) | `django-access-reviewer`, `django-perf-reviewer` |
 | `.github/workflows/*.yml` | `gha-security-reviewer` |
+| IaC (`*.tf`, `*.tofu`, `infra/`) | `iac-reviewer` |
+| DB layer (migrations, raw SQL, `import sqlalchemy`/`sqlmodel`, `cursor.execute`/`text(`) | `sql-reviewer` |
+
+`sql-reviewer` and `django-perf-reviewer` can both match a Django-ORM diff that also touches raw SQL; dispatch both — the coalesce step (5) deduplicates and treats agreement as corroboration.
 
 ### 3. Ground the review
 
 Light pass only — do NOT review the code yourself.
 
 - Read the branch summary / PR description if available (`gh pr view --json title,body` when a PR exists).
+- **Claims audit.** When the PR description states concrete numbers, defaults, or behavioral claims ("defaults to 8 GB", "lowers the timeout to 30s", "now retries 3 times"), spot-check them against the diff and forward any mismatch to the agents as a candidate finding — the description may describe an earlier revision. Don't audit prose intent, only checkable claims.
 - Capture any caller "don't flag this, it's intentional" notes verbatim.
 - Note whether `REVIEW_GUIDELINES.md` exists (the agents load it; just confirm it's there).
 
@@ -65,12 +70,14 @@ Merge the raw findings into one deduplicated report:
 - **Normalize severity to one ruler.** Each agent uses its own scale; map them onto a shared `P0`–`P3` band so the report sorts cleanly and downstream tooling (e.g. `auto-review-code`) can triage uniformly. This is scale-mapping, not second-guessing — keep each agent's native label in the line.
 - **Don't re-review.** Trust each agent's call; your job is consolidation, not a fresh opinion.
 
+The IaC and SQL reviewers already emit `P0`–`P3`, so their bands carry over directly.
+
 | Source severity | Normalized |
 |---|---|
-| code-reviewer `[P0]`; security / GHA **Critical**; access bypass enabling cross-user/tenant data read or write | **P0** |
-| code-reviewer `[P1]`; security / GHA **High**; other IDOR / access-control gaps; Django perf **CRITICAL** (N+1, unbounded queryset) | **P1** |
-| code-reviewer `[P2]`; security / GHA **Medium** or "Needs verification"; Django perf **HIGH** (missing index, write loop) | **P2** |
-| code-reviewer `[P3]`; anything advisory | **P3** |
+| code-reviewer `[P0]`; security / GHA **Critical**; access bypass enabling cross-user/tenant data read or write; sql-reviewer `[P0]` (injection reachable from untrusted input) | **P0** |
+| code-reviewer `[P1]`; security / GHA **High**; other IDOR / access-control gaps; Django perf **CRITICAL** (N+1, unbounded queryset); iac / sql-reviewer `[P1]` (apply-failure, migration/DDL or transaction corruption) | **P1** |
+| code-reviewer `[P2]`; security / GHA **Medium** or "Needs verification"; Django perf **HIGH** (missing index, write loop); iac / sql-reviewer `[P2]` | **P2** |
+| code-reviewer `[P3]`; iac / sql-reviewer `[P3]`; anything advisory | **P3** |
 
 Carry "Needs verification" findings through at their normalized band with the verification question intact — don't silently drop them.
 
@@ -82,3 +89,7 @@ Output: group by normalized priority (P0 first), one finding per line, anchored 
 ```
 
 The `file:line | category | slug` portion is a stable fingerprint downstream tools rely on. Keep `branch`-mode Human Reviewer Callouts as a trailing section. For follow-up ("explain #2", "go deeper on the security findings"), re-invoke the relevant agent rather than answering from your own judgment.
+
+## What this review optimizes for
+
+The goal is catching the **P1 class** — runtime crashes, broken deploys/migrations, and security-boundary regressions — not driving any external review bot to zero findings. Many low-severity bot comments (a duplicated constant, a mutable default that already has a guard, an unnecessary formatter-skip comment) are low value, and bots produce false positives and retract findings too. Spend the review's attention on what would actually break in production; don't pad the report to look thorough.

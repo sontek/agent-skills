@@ -47,7 +47,18 @@ Reviews need two disciplines: *coverage* (look at everything in scope) and *narr
 
 1. Enumerate scope. List every file/path in scope. In `branch` mode, read each affected file *completely* — not just the diff hunk. In `paths` mode, read each listed file or directory completely. Context outside the hunk is often where the real bug hides.
 
-2. Calibrate to the codebase. Before judging style, typing, abstraction, or helper-density findings against universal defaults, sample 3–5 adjacent files (siblings + nearest parent module + the same test directory) and answer:
+2. Trace the blast radius. A diff can break code it never touches. When the diff changes any of the following, search the **whole repo** — not just the changed files — for what depends on it, and read each hit:
+   - a **renamed or removed symbol** (function, variable, attribute, config key) → grep the *old* name;
+   - a **changed string literal that is a contract** (enum/category value, event name, a template placeholder name) → grep the literal;
+   - a **template's placeholder set** (a `{key}` added or removed) → grep render / `.format` sites and any *other* caller of that template, including ones that bypass the modified code path;
+   - a **new or re-raised exception type** → grep the `except` clauses on the path from the raise site to its intended handler (pairs with the Fail-fast rule below);
+   - a **changed function/method signature or contract** (parameters, return shape, exceptions raised) → grep its call sites.
+
+   Tooling, in order: `rg` / `git grep` first — it is the only tool that finds stale **string literals**, and it covers most references cheaply. Use `ast-grep` / `sg` for structural queries when available (every `.format()` regardless of receiver, every `except X`, all call sites of a method). Reach for an LSP "find references" / call hierarchy only when text search is too noisy to trust. If `ast-grep` / LSP are not installed, the `rg` queries above are sufficient — do not skip the step. See `references/patterns.md` ("Blast radius") for the worked shape.
+
+   Hold `branch`-mode discipline: flag only breakage the diff **causes** in those files; do not report pre-existing, unrelated issues you pass on the way.
+
+3. Calibrate to the codebase. Before judging style, typing, abstraction, or helper-density findings against universal defaults, sample 3–5 adjacent files (siblings + nearest parent module + the same test directory) and answer:
    - **Typing discipline.** Are local variables, function parameters, and return types annotated everywhere, only at module boundaries, or rarely? Are there shared type aliases (e.g., `JSONDict`, `UserId`, `Timestamp`) in use? Try `git grep -E '^(from .* import .*|[A-Z][A-Za-z0-9]+ *(:|=)[^=])' -- '<adjacent-glob>'` to surface aliases and per-line annotation density.
    - **Helper-method density.** Does the module favor short helper methods or inline bodies? What's the typical method length?
    - **Test-helper rigor.** Do existing helpers in the same test file/dir carry type annotations? Do they reuse the same shared aliases as production code?
@@ -56,17 +67,17 @@ Reviews need two disciplines: *coverage* (look at everything in scope) and *narr
 
 **For each candidate finding — narrowing:**
 
-3. List 5-7 plausible issues from the scope.
-4. Gather evidence for each (check call sites, related tests, types).
-5. Narrow to 1-2 most likely *real* issues per category.
-6. Validate — read the code, don't speculate.
+4. List 5-7 plausible issues from the scope.
+5. Gather evidence for each (check call sites, related tests, types).
+6. Narrow to 1-2 most likely *real* issues per category.
+7. Validate — read the code, don't speculate.
 
 **Before writing findings — coverage:**
 
-7. Confirm each in-scope file was read and each applicable category from the checklist below was considered.
-8. If you couldn't verify something with evidence (a call site outside scope, an external dependency, a permission class defined elsewhere), surface the gap. Only mention real gaps — no boilerplate "everything verified" notes.
+8. Confirm each in-scope file was read and each applicable category from the checklist below was considered.
+9. If you couldn't verify something with evidence (a call site outside scope, an external dependency, a permission class defined elsewhere), surface the gap. Only mention real gaps — no boilerplate "everything verified" notes.
 
-9. Only then write findings.
+10. Only then write findings.
 
 This prevents both guess-and-check cycles and confident "looks clean" reports on skimmed code. The obvious issue is often not the real one.
 
@@ -135,6 +146,7 @@ Flag issues that:
 - **Parameterize repetitive tests.** When ≥3 test functions differ only in inputs/expected outputs and share the same body shape, propose `@pytest.mark.parametrize` (pytest), `it.each` (Jest), `t.Run` table tests (Go), or the equivalent. Cite the specific test names that should collapse.
 - **No inline imports in tests** unless the import has a stated reason (circular dependency, optional/heavy dependency loaded lazily, monkeypatch ordering). Imports belong at module top. Inline imports without a comment explaining *why* are a code-smell finding.
 - **Idiomatic test-infrastructure setup.** For pytest, env-var setup belongs in `pytest_configure(config)` (runs before conftest module imports), not as module-level side effects in `conftest.py`. Watch for subtle semantic drift in setup helpers — `os.environ.setdefault(k, v)` lets a real CI env var bleed through; `os.environ[k] = v` enforces fakes unconditionally. If the existing convention is direct assignment and a new fixture switches to `setdefault` (or vice versa), flag the isolation change.
+- **A test must pin the behavior the diff introduces.** When the change adds a behavior — a newly-wired argument threaded into a call, a new retry count, a new branch — check that a test would actually *fail* if that behavior regressed. A test that exercises the path but never asserts the new argument reached the call (or that the loop ran the new number of times) gives false confidence: drop the wiring and it still passes. Flag the missing assertion and name the specific call/value to pin. See `references/patterns.md` ("Test pins the wired behavior").
 
 ### Code quality
 
@@ -160,6 +172,7 @@ When reviewing new or modified error handling, default to fail-fast. Evaluate ev
 6. If a catch exists only to satisfy lint/style without real handling, treat it as a bug.
 7. When uncertain, prefer crashing fast over silent degradation.
 8. **Use existing observability infrastructure.** Before approving any new error-handling block, grep the codebase for an established error reporter (Sentry, Bugsnag, Rollbar, structured logger, in-house `report_error` helper). If one exists and the new catch doesn't route through it, flag the gap — even if the local handling looks otherwise correct. Reviewers should not have to ask "why isn't this going to Sentry?".
+9. **Trace new exceptions to their handler.** When the diff introduces a new exception type, or re-raises one so it can reach a *specific* handler (e.g. a boundary that shows a tailored message or maps to a status code), enumerate every `except` clause on the path from the raise site to that handler — including ones outside the diff (use the blast-radius search above). A broad `except Exception` (or a catch of a parent class) on that path silently swallows the new type and the intended handler never runs. This is distinct from rule 3: the catch may handle its *own* errors correctly while still eating a sibling exception that was meant to bubble. Flag any such interception.
 
 ## Priority levels
 
@@ -248,4 +261,4 @@ Rules for the Callouts section:
 
 ## Common patterns to flag
 
-See `plugins/agent-skills/skills/review-code/references/patterns.md` for concrete examples — N+1 queries, missing effect deps, SQL injection, silent error swallowing, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), codebase type aliases vs. bare primitives, trivial helper / premature abstraction, test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.
+See `plugins/agent-skills/skills/review-code/references/patterns.md` for concrete examples — blast-radius breakage outside the diff, N+1 queries, missing effect deps, SQL injection, silent error swallowing, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), codebase type aliases vs. bare primitives, trivial helper / premature abstraction, test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.

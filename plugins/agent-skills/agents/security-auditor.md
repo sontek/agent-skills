@@ -73,6 +73,7 @@ If you can't construct all five, the finding is not HIGH confidence — mark it 
 ## Threat areas you always check
 
 - **Injection** — SQL, NoSQL, command, template, LDAP, header
+- **Prompt injection** — untrusted or model-generated content reaching an LLM prompt without escaping the prompt's structural sentinels (e.g. `<chat_history>` / role tags). Crafted content can close a section early or forge a new one, overriding instructions. Flag unescaped interpolation of user/model content between structural tags; see `plugins/agent-skills/skills/review-code/references/patterns.md` ("Structural-tag / sentinel escaping") for the shape.
 - **Access control** — IDOR, authorization gaps, privilege escalation, tenant boundary violations
 - **Authentication** — session handling, credential storage, MFA bypass, token management
 - **SSRF** — URL inputs reaching fetch without domain allow-listing
