@@ -57,6 +57,8 @@ op.create_index("idx_new", "t", ["col"], postgresql_concurrently=True, if_not_ex
 
 Also flag: **irreversible migrations** with no real `downgrade`; **lock-taking DDL** (non-concurrent index, `ALTER TABLE` rewrites, adding a `NOT NULL` column with a default on old engines) on a large table during normal deploys; data migrations that load an unbounded table into memory.
 
+**"Self-heals on re-run" does not clear it.** A migration that drops and recreates a **hot-path index** across multiple non-transactional steps (each independently committed, e.g. inside an `autocommit_block()`) is *not* acceptable just because re-running `upgrade()` eventually converges. A crash *between* the drop and the recreate/rename leaves the hot path with no serving index until a fresh full rebuild completes — flag that partial-crash/retry window at **≥P2** even when the end state is eventually correct. Eventual convergence is not the same as crash-safe; only wave it through if every step is individually idempotent from any crash point (e.g. validity-checked before acting, not name-checked).
+
 Validate by: confirming the table is large/live and that the failure or lock would actually bite (not a fresh table created in the same migration).
 
 ## Priority 3: Transaction & locking semantics
