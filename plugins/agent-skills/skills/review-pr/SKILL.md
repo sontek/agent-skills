@@ -39,9 +39,10 @@ Invoke every selected agent in a **single message with multiple Task calls** so 
 Merge the raw findings into one deduplicated set:
 
 - **Dedup / corroborate.** Same file within ±3 lines on the same root issue → one comment. Note when multiple reviewers flagged it — corroboration raises confidence and ordering.
-- **Drop noise.** In branch mode, drop findings outside the diff. Drop pure style/formatting unless the user asked for it or it's egregious; batch genuine nits into one summary comment rather than many.
-- **Order** by severity, then by file/line.
-- **Don't re-review.** Trust each agent's call; your job is consolidation and phrasing, not a fourth opinion.
+- **Verify every anchor — here, not at post time.** Sub-agent line numbers drift (they restate from memory or count off a stale buffer). Re-resolve each `file:line` against the current file and confirm the line both exists and falls inside a diff hunk (`git diff <base>...HEAD -- <path>`). A comment on a non-existent or out-of-diff line fails to post or lands in the wrong place. Re-anchor to the nearest relevant changed line; if you can't, demote it to a top-level comment.
+- **Separate introduced from pre-existing.** A finding on code this PR *moved or renamed but did not change* is not introduced here — common in refactors. Default those to an off-PR note or follow-up ticket, not a PR comment; if you do surface one, label it pre-existing and say it needn't block. Reserve PR comments for what the diff actually changed.
+- **Triage by value, not just severity.** Trust each agent's *technical* call, but whether a finding earns the author's attention is your judgment, not theirs. Be willing to recommend dropping low-value findings outright — a weak comment spends reviewer trust. Drop findings outside the diff, and pure style/formatting unless asked or egregious; batch genuine nits into one summary comment.
+- **Order** by value (severity × confidence × in-scope), then by file/line.
 
 ### 5. Turn findings into review comments
 
@@ -49,7 +50,7 @@ Rewrite each kept finding as a comment a human reviewer would actually leave: co
 
 ### 6. Present for approval — never post unprompted
 
-Emit the consolidated comments as rendered markdown in chat, grouped by file, each with its anchor, tag, and text. Then ask the user which to post (e.g., "all", "1,3,5", "none", or edits). **Do not call `gh` to post until the user explicitly approves.** This is the core contract of the skill.
+Emit the consolidated comments as rendered markdown in chat, grouped by file, each with its anchor, tag, and text. Lead with the highest-value comments and say so — if the set is mostly low-value, state that up front and name which one or two actually matter, rather than presenting ten findings as equals. For each, give a one-line recommendation: **post**, **drop** (not worth it), or **off-PR** (ticket/note instead of a PR comment). The user shouldn't have to ask "are these worth posting?" — answer it before they do. Then ask which to post (e.g., "all", "1,3,5", "none", or edits). **Do not call `gh` to post until the user explicitly approves.** This is the core contract of the skill.
 
 ### 7. Post on approval (optional)
 
