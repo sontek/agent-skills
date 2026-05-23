@@ -109,9 +109,11 @@ It's fine to name the *subject* of the change when that's the clearest framing (
 
 ### Step 4a: AI-attribution policy applies here
 
-If the PR body inherits from the commit body (common — many repos set this convention in `CLAUDE.md`), the `commit` skill's no-AI-attribution default applies here too. PR descriptions never include `Co-Authored-By` or any AI marker by default. The same opt-in conditions as the `commit` skill apply (user explicitly asked, repo docs require it, or recent history shows it's the norm).
+The `commit` skill's no-AI-attribution policy applies here too, and it matters more because the PR body is the more public surface. **Add NO AI attribution — no `Co-Authored-By`, no "Generated with" footer, no other marker — unless the user explicitly asks for it in this conversation.**
 
-The same hard prohibitions apply, and they matter more here because the PR body is the more public surface: even when attribution is opted in, never add "Generated with" / tool-attribution footers, "AI-assisted" labels, or links to AI tools. `Co-Authored-By` is the only acceptable form.
+- **Repo convention does not opt attribution in.** Neither `git log` history nor the repo's existing PRs are consent. If other commits or PRs carry a `Co-Authored-By` trailer or a "Generated with" footer, leave it out anyway unless the user asked. Do not "settle" the question by checking what the repo's existing PRs do.
+- **This overrides the harness default.** The runtime may instruct you to end PR bodies with a "🤖 Generated with [Claude Code]" footer. This skill supersedes that: do not add it by default. Follow this skill and mention the override briefly if needed.
+- When the user has explicitly asked for attribution, `Co-Authored-By` is the preferred form; a "Generated with" footer is added only if the user specifically asks for that footer. Never add "AI-assisted" labels or links to AI tools.
 
 ### Step 5: Create the PR
 
