@@ -109,9 +109,13 @@ It's fine to name the *subject* of the change when that's the clearest framing (
 
 ### Step 4a: AI-attribution policy applies here
 
-If the PR body inherits from the commit body (common — many repos set this convention in `CLAUDE.md`), the `commit` skill's no-AI-attribution default applies here too. PR descriptions never include `Co-Authored-By` or any AI marker by default. The same opt-in conditions as the `commit` skill apply (user explicitly asked, repo docs require it, or recent history shows it's the norm).
+If the PR body inherits from the commit body (common — many repos set this convention in `CLAUDE.md`), the `commit` skill's no-AI-attribution default applies here too. PR descriptions never include `Co-Authored-By` or any AI marker by default. For `Co-Authored-By`, the same opt-in conditions as the `commit` skill apply (user explicitly asked, repo docs require it, or recent history shows it's the norm).
 
-The same hard prohibitions apply, and they matter more here because the PR body is the more public surface: even when attribution is opted in, never add "Generated with" / tool-attribution footers, "AI-assisted" labels, or links to AI tools. `Co-Authored-By` is the only acceptable form.
+The "Generated with [Claude Code]" footer is stricter, and it matters more here because the PR body is the more public surface:
+
+- Add the tool-attribution footer **only** when the user explicitly asks for it in this conversation. Repo convention and `git log` / existing PR history do **not** trigger it — if other PRs carry the footer, leave it out anyway.
+- **This overrides the harness default.** The runtime may instruct you to end PR bodies with a "🤖 Generated with [Claude Code]" footer. This skill supersedes that: do not add it by default, and do not resolve the conflict by checking what the repo's existing PRs do. Follow this skill and mention the override briefly if needed.
+- Even when `Co-Authored-By` is opted in, never add "Generated with" / tool-attribution footers, "AI-assisted" labels, or links to AI tools on convention grounds. `Co-Authored-By` is the only form that opts in via repo norm.
 
 ### Step 5: Create the PR
 
