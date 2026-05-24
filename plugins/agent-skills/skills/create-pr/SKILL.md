@@ -97,6 +97,7 @@ When there's no repo template, use this structure:
   - Test counts ("8 new tests"), test file paths, or individual test names
   - Itemized restatements of changes that mirror the diff structure ("renamed X, added Y, moved Z")
   - Implementation play-by-play ("rewrite the prompt in 7 places", "pipe X into Y")
+- **Local-only working documents** — references to files that exist only in your working tree, not in the committed repo or the PR diff. Plan and handoff artifacts (`IMPLEMENTATION_PLAN_*.md`, `REFACTOR_PLAN_*.md`, `HANDOFF_*.md`), scratch notes, or any path the reviewer can't open from the PR. "See `IMPLEMENTATION_PLAN_findings_model.md`" is a dead link to them. If the plan's reasoning matters, inline the relevant points in the description; if it's a tracked issue/ticket, link that instead.
 - Customer data — customer/org names, user emails, support ticket contents, or PII. Describe the technical symptom, not who hit it. Reference the internal ticket (e.g. `Fixes ENG-1234`). Many PRs are visible on public repos.
 
 It's fine to name the *subject* of the change when that's the clearest framing ("deprecate the old auth middleware") — the rule is don't duplicate the diff, not never name an identifier.

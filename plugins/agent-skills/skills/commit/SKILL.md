@@ -68,6 +68,7 @@ The header is required. Scope is optional. All lines must stay under 100 charact
 - Include motivation for the change
 - Contrast with previous behavior when relevant
 - Skip diff-level details — file paths, function or variable names, line numbers, test counts. The diff already shows those. Describe the change in terms of behavior or intent, not the identifiers in the patch.
+- Don't reference local-only working documents — plan/handoff artifacts (`IMPLEMENTATION_PLAN_*.md`, `REFACTOR_PLAN_*.md`, `HANDOFF_*.md`) or scratch notes that live only in your working tree, not the committed repo. Anyone reading `git log` can't open them. Inline the reasoning that matters, or link a tracked issue/ticket instead.
 - Use real newlines in commit bodies; never include literal `\n` sequences
 - Never include customer data — customer/org names, user emails, support ticket contents, or PII. Describe the technical symptom, not who hit it. Reference the internal ticket instead (e.g. `Fixes ENG-1234`).
 
