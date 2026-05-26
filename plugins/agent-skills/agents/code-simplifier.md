@@ -102,6 +102,8 @@ async function fetchUser(id) {
 
 Multiple functions with near-identical bodies. Fingerprint the normalized body (strip comments, variable names) — if two files contain the same logic, extract a helper.
 
+**This requires an explicit cross-file pass.** Per-file review alone misses sibling duplication (the most common shape: two new `_<thing>_render.py` files added in the same diff that share 80% of their body). Run the fingerprinting step **before** per-file review (see "Refinement Process" Phase 0): list every file in scope, build a one-line shape summary per top-level function (signature + body line count + first non-trivial call), and pair-compare. Anything ≥70% shape overlap → flag for consolidation.
+
 ### structure.pass-through-functions (severity: medium)
 
 Single-line forwarders that add no value:
@@ -155,30 +157,56 @@ Flag when ALL of:
 
 ### typing.codebase-alias-missed (severity: medium)
 
-A new declaration uses a bare primitive container (`dict`, `list`, `tuple`, `set`) or raw `str`/`int` where the codebase has an established type alias for that shape.
+A new declaration uses a bare primitive container (`dict`, `list`, `tuple`, `set`) or raw `str`/`int` where the codebase has an established type alias for that shape. The alias name comes from the Phase 0b calibration ledger — whatever discovery surfaced in *this* repo; the rule body uses `<Alias>` as a placeholder.
 
 ```python
-# Bad — bare dict, but the codebase has a JSONDict alias used across siblings
+# Bad — bare dict, but the codebase has an <Alias> aliasing dict[str, Any]
+# (discovered via inversion: e.g., a JSON-shaped dict alias with 100+ hits)
 def _state(**overrides) -> dict:
     ...
 captured: dict = {}
 
-# Good
-from app.types import JSONDict
-def _state(**overrides) -> JSONDict:
+# Good — substitute the alias the calibration ledger surfaced
+from app.types import <Alias>
+def _state(**overrides) -> <Alias>:
     ...
-captured: JSONDict = {}
+captured: <Alias> = {}
 ```
 
-Before flagging, grep adjacent files (`git grep -E ': (JSONDict|UserId|...) '`) to confirm the alias is established (≥3 hits in sibling files). Generalizes to:
+Before flagging, confirm the alias is established (Phase 0b verification): ≥3 hits in adjacent files OR ≥10 hits repo-wide. The second clause catches the asymmetric case where the diff adds a brand-new directory (no neighbors yet) but the alias is project-wide. Generalizes to:
 
 - `dict`/`list`/`tuple`/`set` → typed alias.
 - Raw `str` for a closed value set → `Literal[...]` or `StrEnum`.
 - Raw `int`/`str` IDs → `NewType` brands.
+- Module-level **positional tuple used as a record** (`tuple[float, float]` price pair, `tuple[int, int]` point) → `NamedTuple` / `@dataclass`. This fires even with no project alias and even when the tuple is unpacked at a single site — being unpacked once is not an exemption; the named type documents the slots. Only a tuple created and consumed inside one function body is exempt.
 
 **Exempt:** intentionally generic helpers (a JSON-agnostic merge utility that should accept any dict). The rule fires when the local value is *semantically* in the alias's domain.
 
 Common slip: production code uses the alias, but a new test helper falls back to the bare primitive. Test code should use the same aliases.
+
+### stdlib.reinvented (severity: medium)
+
+A handwritten loop, regex, or formatting block that replicates an obvious stdlib one-liner. The hand-rolled version adds reading load and tends to drift from the canonical semantics over time.
+
+```python
+# Bad — manual ISO 8601 formatting
+ts = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
+
+# Good
+ts = datetime.now(UTC).isoformat()
+```
+
+Common offenders:
+
+- `datetime.strftime` / `strptime` formatting strings that match `isoformat()` / `fromisoformat()`.
+- Manual JSON path-walks where `json.loads` + dict access works.
+- Handwritten `chr` / `ord` base64 or hex, where `base64.b64encode` / `bytes.hex()` works.
+- Manual recursive directory walks where `pathlib.Path.glob` / `rglob` works.
+- Custom enum-via-`if`-chain where `StrEnum` or `Literal` fits.
+
+Before flagging, name the exact stdlib call and confirm semantics match (timezone handling, microsecond precision, exception type on bad input). Don't propose a swap that silently changes behavior.
+
+**Exempt:** the handwritten form is doing something genuinely different (different output format with no stdlib equivalent, deliberate cross-version compatibility, hot-path performance with a measured baseline).
 
 ### comments.placeholder-comments (severity: strong)
 
@@ -257,6 +285,45 @@ Flag bare:
 
 ## Refinement Process
 
+0. **Cross-file pre-pass.** List every file in scope and build a shape summary per new top-level function (signature + body line count + first 1–2 non-trivial calls). Pair-compare for ≥70% shape overlap — anything that matches goes to `structure.duplicate-function-signatures` *before* per-file review starts, because per-file review will see each duplicate as fine in isolation.
+
+0b. **Codebase calibration — inversion protocol.**
+
+   Don't ship pre-baked patterns from training data; read THIS codebase. The closed-ended shape ("agent runs N hardcoded discovery queries") catches only the idioms the rubric authors thought to enumerate. Invert it: read the in-scope files first, propose candidates per block, verify each against the repo.
+
+   Process:
+
+   a. **Identify language(s) in scope** from the file list.
+
+   b. **Load project-declared conventions if present.** Check for `CLAUDE.md`, `AGENTS.md`, and `REVIEW_GUIDELINES.md` (in `.claude/` or at repo root). Treat their contents as the source of truth; use the inversion only for what they don't cover.
+
+   c. **For each shape below, ENUMERATE every matching site in scope — then propose one candidate per distinct site.** Don't stop at the first instance; one `rg` over the in-scope files lists them (`rg -n ': dict\b|-> dict\b'` for bare dicts; `rg -n 'tuple\['` for positional tuples). Two `tuple[...]` declarations are **two** candidates with two decisions, not one. Candidates are generated from the code under review, not from this rubric.
+
+      Shapes that warrant a candidate (enumerate *all* matches of each, not just the first):
+      - bare-primitive annotation (`dict`, `list`, `Map<>`, `interface{}`) where a named alias might fit — check every annotated parameter, return, and local
+      - positional tuple / struct used as a record where a named-field type would document the slots — check every `tuple[...]` at module level or in a public return
+      - hand-rolled formatting / parsing / IO that a stdlib (or well-known library) one-liner covers
+      - manual loops over a sequence that an itertools / functional one-liner covers
+      - inline magic constants where the codebase typically uses a `Literal` / `StrEnum` / brand
+
+   d. **VERIFY each candidate with ONE query.** Tool preference:
+      - `ast-grep` — first choice for structural patterns (`$X.isoformat()`, `class $X(NamedTuple)`).
+      - `rg` — for lexical patterns / counts (`rg -c`).
+      - `git grep` — universal fallback.
+
+      Record the literal command and the hit count. Example shapes (not a checklist — match the candidate you proposed):
+      ```bash
+      ast-grep --lang python -p '$X.isoformat()' | wc -l
+      rg -cE 'class \w+\(NamedTuple\)|@dataclass\b' -t py
+      git grep -cE '\.toISOString\(\)' -- '*.ts' '*.tsx'
+      ```
+
+   e. **DECIDE — per site, not per shape.** A candidate is "established" at ≥3 hits in adjacent files OR ≥10 hits repo-wide. Established AND the in-scope code hand-rolls the same task → fire the corresponding rule (`typing.codebase-alias-missed`, `stdlib.reinvented`, `positional-tuple-no-named-fields`, etc.). Each enumerated site gets its own row and its own decision — holding one instance of a shape (a `tuple[str, str]` case-list as a test idiom) says nothing about another (a `tuple[float, float]` pricing record). A local justification comment does not override the calibration.
+
+   f. **Emit the candidates-considered ledger** at the top of your report, before per-file findings. Include candidates that DIDN'T fire — surfacing a candidate you considered and verified-low is what makes the calibration falsifiable. A blank ledger means inversion didn't happen.
+
+   "I generated no candidates" is not a valid outcome on a real diff.
+
 1. Identify the recently modified code sections (check git status, recent file edits)
 2. Analyze for opportunities to improve elegance and consistency
 3. Apply project-specific best practices and coding standards
@@ -267,7 +334,17 @@ Flag bare:
 
 ## Output Format
 
-For each file touched, report:
+Start the report with the **Codebase calibration ledger** from Phase 0b — required:
+
+```
+## Codebase calibration
+
+| Candidate | Code site | Verify command | Hits | Decision |
+|---|---|---|---|---|
+| `<named type / stdlib call / library idiom>` | `<path:line>` | `<ast-grep / rg / git grep command>` | <N> | fire (<rule-id>) / hold (low adoption) / n/a |
+```
+
+Then for each file touched, report:
 - **File path**
 - **Changes**: bullet list of simplifications applied, referencing rule IDs where applicable (e.g. `defensive.error-swallowing`)
 - **Evidence**: one-liner per change (e.g., `line 42: catch logs only → let throw`)

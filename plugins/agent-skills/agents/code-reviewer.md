@@ -54,16 +54,58 @@ Reviews need two disciplines: *coverage* (look at everything in scope) and *narr
    - a **new or re-raised exception type** → grep the `except` clauses on the path from the raise site to its intended handler (pairs with the Fail-fast rule below);
    - a **changed function/method signature or contract** (parameters, return shape, exceptions raised) → grep its call sites.
 
-   Tooling, in order: `rg` / `git grep` first — it is the only tool that finds stale **string literals**, and it covers most references cheaply. Use `ast-grep` / `sg` for structural queries when available (every `.format()` regardless of receiver, every `except X`, all call sites of a method). Reach for an LSP "find references" / call hierarchy only when text search is too noisy to trust. If `ast-grep` / LSP are not installed, the `rg` queries above are sufficient — do not skip the step. See `references/patterns.md` ("Blast radius") for the worked shape.
+   Tooling, in preference order — all three are typically available; reach for the right one for the question:
+   - **`ast-grep`** — structural queries that survive whitespace/comments/multi-line. Use for "every `.format()` regardless of receiver", "every `except X`", "all call sites of a method", "every `class X(NamedTuple)`". Patterns like `$X.format($$$)` or `class $X(NamedTuple)`.
+   - **`rg`** — lexical patterns and counts. Faster and more ergonomic than `git grep`. Use for stale string literals, contract values, count-of-X questions (`rg -c`).
+   - **`git grep`** — universal fallback when the above aren't available.
+   Reach for an LSP "find references" / call hierarchy only when text/structural search is too noisy to trust. Do not skip the step. See `references/patterns.md` ("Blast radius") for the worked shape.
 
    Hold `branch`-mode discipline: flag only breakage the diff **causes** in those files; do not report pre-existing, unrelated issues you pass on the way.
 
 3. Calibrate to the codebase. Before judging style, typing, abstraction, or helper-density findings against universal defaults, sample 3–5 adjacent files (siblings + nearest parent module + the same test directory) and answer:
-   - **Typing discipline.** Are local variables, function parameters, and return types annotated everywhere, only at module boundaries, or rarely? Are there shared type aliases (e.g., `JSONDict`, `UserId`, `Timestamp`) in use? Try `git grep -E '^(from .* import .*|[A-Z][A-Za-z0-9]+ *(:|=)[^=])' -- '<adjacent-glob>'` to surface aliases and per-line annotation density.
+   - **Typing discipline.** Are local variables, function parameters, and return types annotated everywhere, only at module boundaries, or rarely? Does the repo declare shared type aliases (any project-coined name following the `TypeAlias`/`NewType`/parameterized-generic shape)? Try `rg -E '^(from .* import .*|[A-Z][A-Za-z0-9]+ *(:|=)[^=])' '<adjacent-glob>'` to surface aliases and per-line annotation density. The aliases this run cares about are whatever discovery in step 3b surfaces — not a fixed list.
    - **Helper-method density.** Does the module favor short helper methods or inline bodies? What's the typical method length?
    - **Test-helper rigor.** Do existing helpers in the same test file/dir carry type annotations? Do they reuse the same shared aliases as production code?
 
    Apply the codebase's bar, not a universal default. If the codebase annotates locals, demand annotated locals in the diff. If existing test helpers use a shared alias, flag new test helpers that drop back to bare `dict`/`list`/`str`. If the codebase keeps logic inline, raise the bar on any new tiny helper method.
+
+3b. **Codebase calibration — inversion protocol.**
+
+    Don't ship pre-baked patterns from training data; read THIS codebase. The closed-ended shape ("agent runs N hardcoded discovery queries") catches only the idioms the rubric authors thought to enumerate — a `pathlib.Path.glob` vs `os.walk` reinvention in a `pathlib`-heavy repo, for instance, would slip. Invert it: read the diff first, propose candidates per block, verify each against the repo.
+
+    Process:
+
+    a. **Identify language(s) in scope** from the changed files.
+
+    b. **Load project-declared conventions if present.** `REVIEW_GUIDELINES.md` may pre-declare the project's named types, idioms, and style rules. If it does, treat its contents as the source of truth and use the inversion only to fill gaps.
+
+    c. **For each shape below, ENUMERATE every site in the diff that matches it — then propose one candidate per distinct site.** Do not stop at the first instance: one `rg` over the changed files lists them cheaply (`rg -n ': dict\b|-> dict\b' <changed-files>` for bare-dict annotations; `rg -n 'tuple\[' <changed-files>` for positional tuples; `rg -ln '_[a-z].*\.py$' <changed-dirs>` for underscore modules). Two `tuple[...]` declarations in different files are **two** candidates with two decisions, not one. Candidates are generated from the diff, not from this rubric.
+
+       Shapes that warrant a candidate (enumerate *all* matches of each, not just the first):
+       - bare-primitive annotation (`dict`, `list`, `Map<>`, `interface{}`) where a named alias might fit — check **every** annotated parameter, return, and local, including helper and test files
+       - positional tuple / struct used as a record where a named-field type would document the slots — check **every** `tuple[...]` at module level or in a public return, not just the first you notice
+       - hand-rolled formatting / parsing / IO that a stdlib (or well-known library) one-liner covers
+       - manual loops over a sequence that an itertools / functional one-liner covers
+       - inline magic constants / sentinels where the codebase typically uses a `Literal` / `StrEnum` / brand
+       - a new module file with a leading-underscore name (`_helpers.py`, `_render.py`) — propose the plain name. **The diff's own new `_*.py` files are never their own precedent:** count only leading-underscore modules already on the base branch (`git ls-files '*/_*.py'`, then subtract the files this diff adds), not the ones being introduced. Hold **only** when ≥2 such *pre-existing* modules exist (one `_common.py` is the same smell, not a convention) **or** the file sits in an `_internal/` package whose `__init__.py` documents the convention. "They look like intentional internal helpers" is **not** a valid hold — an intentional private *module name* is the exact thing this rule flags.
+
+    d. **VERIFY each candidate with ONE query.** Tool preference:
+       - `ast-grep` — first choice for structural patterns (`$X.isoformat()`, `class $X(NamedTuple)`, `$T: TypeAlias = $$$`); survives whitespace, comments, multi-line.
+       - `rg` — for lexical patterns or counts where structure isn't needed; faster than `git grep` and ergonomic counting via `-c`.
+       - `git grep` — universal fallback for environments without the above.
+
+       Record the literal command and the hit count. Example shapes (not a checklist — match the candidate you proposed):
+       ```bash
+       ast-grep --lang python -p '$X.isoformat()' | wc -l
+       rg -cE 'class \w+\(NamedTuple\)|@dataclass\b' -t py
+       git grep -cE '\.toISOString\(\)' -- '*.ts' '*.tsx'
+       ```
+
+    e. **DECIDE — per site, not per shape.** A candidate is "established" at ≥3 hits in adjacent files OR ≥10 hits repo-wide. Established AND the diff hand-rolls the same task → fire the corresponding rule (`typing.codebase-alias-missed`, `stdlib.reinvented`, `positional-tuple-no-named-fields`, etc.). Each enumerated site gets its **own** row and its **own** decision: holding one instance of a shape does not dispose of the others — a `tuple[str, str]` case-list held as a test idiom says nothing about a `tuple[float, float]` pricing record elsewhere; each is judged on its own hit count. A weak local justification comment in the diff does not override the calibration — the verified hit count is the calibration.
+
+    f. **Emit the candidates-considered ledger** in your output (see Output format). Include candidates that DIDN'T fire too — surfacing a candidate you considered and verified-low is what makes the calibration falsifiable. A blank ledger means inversion didn't happen.
+
+    "I generated no candidates" is not a valid outcome on a real diff.
 
 **For each candidate finding — narrowing:**
 
@@ -105,6 +147,8 @@ Flag issues that:
 - Race conditions, shared-state hazards, missed awaits
 - Backwards compatibility — breaking API changes without migration path
 - Refactors that look like no-ops but change invariants: `setdefault` vs `=` (conditional vs forced assignment), `or` vs `is None` (falsy vs missing), `dict.get(k)` vs `dict[k]` (silent vs exception), `Optional[T]` defaulting to `None` vs `T` defaulting to a value. When a refactor changes one of these — especially in shared/test infrastructure or env-handling code — flag it even if the new behavior looks "fine".
+- **Time-bomb constants.** A hardcoded date, year, or "current period" literal used as `now` / a contract boundary / a default that will silently drift as time passes (`CURRENT_DATE = "2026-05-21"`, `if year < 2025`, an eval question asking "this month" answered against a frozen date). The bug ships green and rots later. Demand either a comment naming the refresh trigger (`# refresh per release`, `# sunset Q4 2026`, `# refresh when eval baseline rolls`), a `date.today()` call, or a parameter the caller supplies. **An existing comment is not enough on its own** — generic justifications like `# fixed for reproducibility`, `# pinned`, or `# stable across runs` describe *what* the constant is, not *when* it gets refreshed. Flag those: the rule fires until the comment answers "what triggers a refresh."
+- **Fragile path traversal.** `Path(__file__).parents[N]` with N≥2, hardcoded relative `../../..`, or any "count directories up" anchor. Silently breaks the day someone moves the file. Prefer a stable anchor: the package root via `importlib.resources`, a git-root probe, or a single named constant defined at one canonical site. This fires **independently of any `sys.path` verdict**: if a guarded `sys.path.insert(...)` is judged acceptable, the `parents[N]` *inside* it is still its own finding — the count-the-dots anchor breaks on a file move regardless of why the line exists (`references/patterns.md` notes both findings apply when they co-occur).
 
 ### Performance
 
@@ -134,6 +178,7 @@ Flag issues that:
 - Are abstractions justified by current use, not speculative future use?
 - **Trivial helper methods.** A new method whose body is ≤ 3 statements (often 1), takes no arguments beyond `self`, and is called from ≤ 2 sites — especially when the call site would read just as well inlined (e.g., `self.log.info(f"Node:{self.name} done", extra={...})` is no harder to read than `self._log_complete()`). Inline it unless it's a deliberate extension point with subclass overrides in the same diff. Be stricter when the codebase generally keeps logic inline (see "Calibrate to the codebase" in Investigation approach).
 - **Premature shared abstraction.** A new base-class method, mixin, or utility introduced for a single concrete caller. Wait until the second caller appears — abstractions earn their keep through *use*, not anticipation. A bundled "future PR will use this" justification is a bundled-refactor signal (see "Bundled refactors"), not a justification.
+- **`sys.path` manipulation.** Any new `sys.path.insert(...)` / `sys.path.append(...)` in production or test code. It's a smell for broken packaging — the file is reachable through normal imports if the package layout is right. The `if __package__ in (None, "")` guard makes the hack *safe to ship* but does **not** clear the finding, and a comment asserting it's needed (`# pytest sets sys.path automatically`) is not a pass. Before deciding, check whether the file is (or could be) launched through a recipe you control — a Justfile/Makefile/CI step or a `python tests/…py` invocation: if so, the real fix is `python -m <pkg.module>` and the hack should be deleted, so flag it (at least a P3 nudge that names the `python -m` replacement). Fully exempt only a standalone script with genuinely no runner that could invoke `python -m`.
 
 ### Testing
 
@@ -153,7 +198,12 @@ Flag issues that:
 - Naming conveys intent
 - Comments explain *why* (non-obvious constraints), not *what* (obvious from code)
 - Error messages reference stable identifiers, not mutable text
-- **Codebase type aliases.** If the codebase has a shared alias for a value's shape (`JSONDict` for JSON-ish dicts, `UserId` for IDs, `Literal[...]`/`StrEnum` for closed string sets, `NewType` brands), use it instead of the bare primitive (`dict`, `str`, `int`, etc.). Grep adjacent files (`git grep -E ': (JSONDict|UserId|...) ' -- '<lang-glob>'`) before approving any new `: dict` / `: list` / `: str` parameter, return type, or local annotation; if the alias is established (≥3 hits in adjacent files), flag the bare-primitive declaration. Applies to test code too — test helpers should use the same aliases as production.
+- **Codebase type aliases.** If the codebase has a shared alias for a value's shape (a JSON-dict alias, an ID/brand alias, `Literal[...]`/`StrEnum` for closed string sets with *N*≥3 values, `NewType` brands), use it instead of the bare primitive (`dict`, `str`, `int`, etc.). For *N*==2 closed string sets, prefer `bool` instead (see "Closed two-state value" below). The candidate alias name comes from the calibration ledger (step 3b) — whatever discovery surfaced in *this* repo. The alias is "established" if there are ≥3 hits in adjacent files OR ≥10 hits repo-wide — the second clause matters when the diff introduces a brand-new directory with no neighbors yet. Flag the bare-primitive declaration in either case. Applies to test code too — test helpers should use the same aliases as production.
+- **Stdlib reinvention.** A handwritten loop, regex, or `strftime` block that replicates an obvious stdlib one-liner. Common offenders: manual `datetime` formatting where `.isoformat()` / `.fromisoformat()` fits, hand-rolled JSON walks where `json.loads` + a dict access works, manual base64/hex with `chr`/`ord`, manual file globbing with `os.walk` where `pathlib.Path.glob` fits. Before flagging, name the exact stdlib call and confirm semantics match (timezone handling, precision, exception type) — don't propose a swap that silently changes behavior.
+- **Closed two-state value modeled as a string.** A new field, parameter, or list element whose only values are `"in"`/`"out"`, `"yes"`/`"no"`, `"on"`/`"off"`, `"true"`/`"false"` — and which is read with `== "in"` or routed through a converter. Use `bool` (or a `StrEnum` if a third state is genuinely anticipated). The string adds a conversion site, a typo surface, and a question every reader has to answer ("what are the legal values?"). Inverse rule to the `StrEnum` guidance: closed *N*-state strings deserve a named type when *N*≥3, but `N`==2 deserves `bool`.
+- **Positional tuple where field meaning isn't self-evident.** `tuple[float, float]`, `tuple[int, int, int]`, etc., used as a record. The reader has to guess what each slot means and the next caller will index `[0]` / `[1]` at every site. Flag when the tuple is declared in module-level types or returned from a public function — even if a nearby comment names the fields. Prose comments drift away from the type and don't propagate to call sites; the type itself must encode the field meaning via `NamedTuple` or `@dataclass`. **Being unpacked at only one call site is *not* an exemption** — a module-level `dict[str, tuple[float, float]]` (a price pair, an `(x, y)` point, an `(input, output)` rate) is opaque at its declaration no matter how few readers it has, and the named type is the documentation. The *only* exemption is a tuple created and consumed entirely inside one function body.
+- **Python module names with a leading underscore.** A new file like `_helpers.py` / `_render.py`. Leading underscores mark *attributes* private inside a module (`_internal_fn`), not modules themselves — the stdlib reserves `_foo.py` for C-extension companions (`_collections_abc.py`). Use a plain name; if the module is package-internal, rely on `__init__.py` not re-exporting it. A lone pre-existing `_foo.py` elsewhere in the repo is **not** precedent — treat leading-underscore modules as an established local convention only when ≥2 already exist *on the base branch*, excluding the files this diff itself adds (the diff can't be its own precedent). "Intentional internal helper" is not an exemption — a deliberately-private module *name* is what this flags. Exempt only: an explicit `_internal/` package whose `__init__.py` documents the convention.
+- **Non-root `.gitignore` files.** A new `.gitignore` outside the repo root, especially the `*` + `!.gitignore` "ignore the whole directory" pattern. Almost always a single root `.gitignore` is the right home; per-directory files fragment the rules and hide them from the reader scanning `git status`. Move the patterns to the root file (`tests/evals/results/*` instead of `tests/evals/results/.gitignore`) unless the directory is a vendored/submoduled subtree where the inner `.gitignore` is upstream's, or the patterns are *only* meaningful when that directory exists as a working tree.
 
 ### Side effects
 
@@ -220,10 +270,28 @@ Changes that need senior review attention:
 
 ## Output format
 
+The output has three sections. **Codebase calibration** comes first and is required — it documents the discovery from step 3b so the rest of the review is traceable to repo-observed conventions, not pre-baked ones. **Findings** (P0–P2) is the "fix before merge" list — keep it tight, every entry should be defensible. **Minor / nudges** (P3) is a bulleted list of lower-severity hits surfaced by the calibration. P3 entries MUST be emitted if calibration surfaces a hit — do not triage P3s out because the Findings band already has plenty of P1/P2s. The two finding bands serve different audiences (Findings gates merge; Minor is the human-reviewer nudge list); suppressing the nudge band to make the report look tighter defeats the rule additions that earned their place in the rubric.
+
 ```markdown
 ## Review
 
 **Verdict:** `correct` (no blocking issues) | `needs attention` (has blocking issues)
+
+### Codebase calibration
+
+Required. Candidates-considered ledger from the inversion protocol (step 3b). One row per candidate the agent proposed from a block in the diff — including candidates that verified low and didn't fire. Empty ledger = inversion didn't happen.
+
+- Languages in scope: <list>
+- Project conventions file: `REVIEW_GUIDELINES.md` found at <path> | not present
+
+| Candidate | Diff site | Verify command | Hits | Decision |
+|---|---|---|---|---|
+| `<named type / stdlib call / library idiom>` | `<path:line>` | `<ast-grep / rg / git grep command>` | <N> | fire ([P?]) / hold (low adoption) / n/a |
+
+Decision values:
+- `fire ([Pn])` — established AND diff hand-rolls; emit a finding (P2 or P3 per severity table).
+- `hold (low adoption)` — candidate verified < threshold, rule does not fire this run.
+- `n/a` — candidate proposed but the diff doesn't actually exercise this task on closer read.
 
 ### Findings
 
@@ -234,6 +302,13 @@ Changes that need senior review attention:
 
 #### [P2] Brief title
 ...
+
+### Minor / nudges (P3)
+
+Bullet form, one line each — no per-finding Issue/Fix subsection. Anchor with `file:line | category | slug` then a 1–2 sentence note. Required when calibration surfaced the issue, regardless of how many P1/P2s the Findings band already contains. The named-type and hit-count references come from the calibration above (not from this rubric).
+
+- `path/to/file.ext:N | code-quality | bare-primitive-where-alias-exists` — bare `dict` (or `Map`, `interface{}`, etc.); codebase uses `<alias-from-calibration>` (N hits). Switch.
+- `path/to/file.ext:N | code-quality | positional-tuple-no-named-fields` — `tuple[float, float]` (or equivalent); codebase uses NamedTuple/@dataclass at N sites. Convert.
 
 ### Human Reviewer Callouts (Non-Blocking) — `branch` mode only
 
@@ -261,4 +336,4 @@ Rules for the Callouts section:
 
 ## Common patterns to flag
 
-See `plugins/agent-skills/skills/review-code/references/patterns.md` for concrete examples — blast-radius breakage outside the diff, N+1 queries, missing effect deps, SQL injection, silent error swallowing, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), codebase type aliases vs. bare primitives, trivial helper / premature abstraction, test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.
+See `plugins/agent-skills/skills/review-code/references/patterns.md` for concrete examples — blast-radius breakage outside the diff, N+1 queries, missing effect deps, SQL injection, silent error swallowing, time-bomb constants, fragile path traversal, `sys.path` manipulation, non-root `.gitignore`, closed two-state strings (use `bool`), positional tuples needing `NamedTuple`, stdlib reinvention, Python module-name conventions, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), codebase type aliases vs. bare primitives, trivial helper / premature abstraction, test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.
