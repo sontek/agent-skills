@@ -17,6 +17,14 @@ This differs from siblings: `review-code`/`review-security` run one agent and re
 - **Local branch (default):** base branch is `main` unless overridden (`git symbolic-ref refs/remotes/origin/HEAD`). Diff range `<base>...HEAD`. List files: `git diff --name-only <base>...HEAD`.
 - **GitHub PR (`/review-pr 123` or a PR URL):** `gh pr view <n> --json number,headRefName,baseRefName,title,body`, then check out or diff that branch's range. Capture the PR title/body as grounding.
 
+**Read the existing discussion first.** Before dispatching reviewers, pull what's already been said so you don't re-litigate settled threads — this is the difference between a useful pass and noise on a PR that's been through three review rounds:
+
+- Inline review comments + threads: `gh api repos/{owner}/{repo}/pulls/<n>/comments` (path, line, body, resolution where available).
+- Top-level discussion: `gh pr view <n> --comments`.
+- Recent commits on the branch (`git log --oneline <base>...HEAD`) — a later commit may have already addressed an earlier comment (e.g. a refactor that moved the flagged code). Skim the diffs of commits that look like they respond to feedback.
+
+Keep this discussion as grounding for the coalesce step. For a local branch with no PR, there's no discussion to read — skip.
+
 Stop and ask if scope is empty or ambiguous.
 
 ### 2. Pick reviewers from the diff
@@ -41,16 +49,17 @@ Merge the raw findings into one deduplicated set:
 - **Dedup / corroborate.** Same file within ±3 lines on the same root issue → one comment. Note when multiple reviewers flagged it — corroboration raises confidence and ordering.
 - **Verify every anchor — here, not at post time.** Sub-agent line numbers drift (they restate from memory or count off a stale buffer). Re-resolve each `file:line` against the current file and confirm the line both exists and falls inside a diff hunk (`git diff <base>...HEAD -- <path>`). A comment on a non-existent or out-of-diff line fails to post or lands in the wrong place. Re-anchor to the nearest relevant changed line; if you can't, demote it to a top-level comment.
 - **Separate introduced from pre-existing.** A finding on code this PR *moved or renamed but did not change* is not introduced here — common in refactors. Default those to an off-PR note or follow-up ticket, not a PR comment; if you do surface one, label it pre-existing and say it needn't block. Reserve PR comments for what the diff actually changed.
+- **Cross-check against the existing discussion.** For each surviving finding, check whether it was already raised in the comments/threads you read in step 1. If it was discussed and resolved (author explained intent, deferred it, or a later commit fixed it), drop it — re-posting a settled thread is pure noise. If it was raised but left open, reference that rather than opening a parallel thread. Only carry forward findings that are genuinely new to the conversation.
 - **Triage by value, not just severity.** Trust each agent's *technical* call, but whether a finding earns the author's attention is your judgment, not theirs. Be willing to recommend dropping low-value findings outright — a weak comment spends reviewer trust. Drop findings outside the diff, and pure style/formatting unless asked or egregious; batch genuine nits into one summary comment.
 - **Order** by value (severity × confidence × in-scope), then by file/line.
 
 ### 5. Turn findings into review comments
 
-Rewrite each kept finding as a comment a human reviewer would actually leave: concise, specific, one point per comment, no priority-code jargon, no AI attribution. Label with a conventional tag (**blocking**, **suggestion**, **question**, **nit**, **praise**) and anchor to `file:line`. Add a ```suggestion block only when the exact replacement is unambiguous. See [references/comment-style.md](references/comment-style.md) for tone rules and worked before/after examples.
+Rewrite each kept finding as a comment a human reviewer would actually leave: concise, specific, one point per comment, no priority-code jargon, no AI attribution. **No tag prefixes** (`blocking —`, `suggestion —`, etc.) — they read like a robot filled in a form. Convey weight in the prose itself: a must-fix reads as must-fix because the consequence is concrete and you say "before merge" in words; a minor point opens with "small one:"; a question just asks. Anchor each to `file:line`. Add a ```suggestion block only when the exact replacement is unambiguous. See [references/comment-style.md](references/comment-style.md) for the prose-weight guidance and worked before/after examples.
 
 ### 6. Present for approval — never post unprompted
 
-Emit the consolidated comments as rendered markdown in chat, grouped by file, each with its anchor, tag, and text. Lead with the highest-value comments and say so — if the set is mostly low-value, state that up front and name which one or two actually matter, rather than presenting ten findings as equals. For each, give a one-line recommendation: **post**, **drop** (not worth it), or **off-PR** (ticket/note instead of a PR comment). The user shouldn't have to ask "are these worth posting?" — answer it before they do. Then ask which to post (e.g., "all", "1,3,5", "none", or edits). **Do not call `gh` to post until the user explicitly approves.** This is the core contract of the skill.
+Emit the consolidated comments as rendered markdown in chat, grouped by file, each with its anchor and text. Lead with the highest-value comments and say so — if the set is mostly low-value, state that up front and name which one or two actually matter, rather than presenting ten findings as equals. For each, tell the user in plain prose what you'd do with it — whether it's worth posting, worth dropping as not worth the noise, or better as an off-PR note/ticket than a line comment — and why, in a sentence. Don't stamp a `Recommendation:` label on it; just say it like you'd tell a colleague ("I'd post this one — it's the real tradeoff of the refactor", "I'd drop this, it's already settled in the thread"). The user shouldn't have to ask "are these worth posting?" — answer it before they do. Then ask which to post (e.g., "all", "1,3,5", "none", or edits). **Do not call `gh` to post until the user explicitly approves.** This is the core contract of the skill.
 
 ### 7. Post on approval (optional)
 

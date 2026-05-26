@@ -27,7 +27,7 @@ cat > /tmp/review.json <<'EOF'
     {
       "path": "src/orders/api.py",
       "line": 42,
-      "body": "**blocking** — `lookup_customer` returns None on a miss, so `customer.email` will throw here. Guard it or return early?"
+      "body": "`lookup_customer` returns None on a miss, so `customer.email` will throw here — guard it or return early? Worth fixing before this merges."
     }
   ]
 }
