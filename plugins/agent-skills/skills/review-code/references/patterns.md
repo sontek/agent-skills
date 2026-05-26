@@ -78,6 +78,160 @@ try {
 return JSON.parse(data);  // let it throw
 ```
 
+## Time-bomb constants
+
+A hardcoded date or year used as `now`, a contract boundary, or a default. Ships green and silently rots.
+
+```python
+# Bad — eval pinned to a frozen date; "this month" answers drift wrong
+EVAL_CURRENT_DATE = "2026-05-21"
+
+# Good — either parameterize, or comment the refresh trigger
+EVAL_CURRENT_DATE = os.environ.get("EVAL_DATE", date.today().isoformat())
+# or, if the date MUST stay fixed for reproducibility:
+# Refresh when bumping the eval baseline; tracked in tests/evals/README.md.
+EVAL_CURRENT_DATE = "2026-05-21"
+```
+
+Flag any string/int literal that looks like a date/year and is named like a "current" / "today" / "now" reference. Same shape for version pins used as "latest" (`LATEST_MODEL = "claude-..."`).
+
+## Fragile path traversal
+
+`Path(__file__).parents[N]` with N≥2, or hardcoded `../../..` strings. Breaks the day someone moves the file — silently, because the new wrong path may still exist.
+
+```python
+# Bad — count-the-dots indexing (and the chained .parent.parent.parent variant
+# is just as fragile — same count, different syntax)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+# Better — probe git
+REPO_ROOT = Path(
+    subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode().strip()
+)
+
+# Better still — anchor on the installed package
+from importlib.resources import files
+PACKAGE_ROOT = files("my_package")
+
+# Best — fix the packaging so this isn't needed at all (see sys.path pattern below)
+```
+
+If you see `.parents[N]` with N≥2 *and* a `sys.path.insert` next to it, both findings apply.
+
+## `sys.path` manipulation
+
+A new `sys.path.insert(...)` / `sys.path.append(...)` is almost always a smell — the file is reachable through normal imports if packaging is right.
+
+```python
+# Bad — manual path hack so a sibling import works under `python tests/evals/diff.py`
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from tests.evals.scoring import MODEL_PRICING_USD_PER_1K  # noqa: E402
+
+# Good — run with `python -m tests.evals.diff`, or wire the recipe to do so:
+# just eval-diff: python -m tests.evals.diff "$@"
+from tests.evals.scoring import MODEL_PRICING_USD_PER_1K
+```
+
+Acceptable cases are narrow: top of a script that's *also* meant to be runnable directly from a checkout. Even there, the fix is usually `python -m <pkg.module>` in the runner / Justfile / Makefile, not the hack.
+
+## Non-root `.gitignore`
+
+Per-directory `.gitignore` files fragment the rules and hide them from anyone scanning `git status`.
+
+```
+# Bad — tests/evals/results/.gitignore
+*
+!.gitignore
+
+# Good — one entry in the repo-root .gitignore
+tests/evals/results/*
+!tests/evals/results/.gitkeep
+```
+
+Flag any new `.gitignore` outside the repo root unless: (a) the directory is a vendored / submoduled subtree where the inner file is upstream's, or (b) the patterns are only meaningful when that directory exists as a working tree (a generated-artifacts area where the `.gitignore` itself is the placeholder). Even (b) is usually better expressed with `.gitkeep` + a root entry.
+
+## Closed two-state value modeled as a string
+
+`bool` is the right type for two-state flags. A string adds a typo surface, a conversion site, and a "what are the legal values?" question for every reader.
+
+```python
+# Bad — string with two values, read with == comparisons everywhere
+_CASES: list[tuple[str, str, str]] = [
+    ("ec2_spend_question", "what's my ec2 spend?", "in"),
+    ("weather_in_tokyo",   "what's the weather?",  "out"),
+]
+def _is_in_scope(label: str) -> bool:
+    return label == "in"
+
+# Good — bool, no converter needed
+_CASES: list[tuple[str, str, bool]] = [
+    ("ec2_spend_question", "what's my ec2 spend?", True),
+    ("weather_in_tokyo",   "what's the weather?",  False),
+]
+```
+
+Flag when a new field, list-element slot, or parameter has exactly two string values that pair up as on/off-style. If three or more states are anticipated, escalate to `StrEnum` / `Literal[...]` (the existing typing rule).
+
+## Positional tuple where field meaning isn't self-evident
+
+```python
+# Bad — what do the two floats mean? You have to read the calling code to find out.
+MODEL_PRICING_USD_PER_1K: dict[str, tuple[float, float]] = {
+    "us.anthropic.claude-sonnet-4-5-...": (0.003, 0.015),
+}
+in_per_1k, out_per_1k = pricing  # the meaning only surfaces here
+
+# Good — NamedTuple makes the contract local to the type
+class ModelPricing(NamedTuple):
+    input_per_1k_usd: float
+    output_per_1k_usd: float
+
+MODEL_PRICING: dict[str, ModelPricing] = {
+    "us.anthropic.claude-sonnet-4-5-...": ModelPricing(0.003, 0.015),
+}
+```
+
+Flag positional tuples declared in module-level types or returned from public functions when field meaning isn't obvious from context. Inline tuples in a single function body are fine.
+
+## Stdlib reinvention
+
+Handwritten code that replicates an obvious stdlib one-liner.
+
+```python
+# Bad — manual ISO 8601 formatting
+ts = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S-%fZ")
+
+# Good
+ts = datetime.now(UTC).isoformat()
+```
+
+Most common forms:
+
+- `datetime.strftime`/`strptime` ↔ `isoformat`/`fromisoformat`
+- Manual JSON path-walks ↔ `json.loads` + dict access
+- Handwritten base64/hex ↔ `base64.b64encode` / `bytes.hex()`
+- Manual `os.walk` ↔ `pathlib.Path.glob` / `rglob`
+- Custom enum via `if` chain ↔ `StrEnum` / `Literal`
+
+Before flagging, name the exact stdlib call and confirm semantics match (timezone, precision, exception type on bad input).
+
+## Python module names with a leading underscore
+
+```
+# Bad — looks intentional, isn't
+tests/evals/_router_render.py
+tests/evals/_cost_agg_render.py
+
+# Good
+tests/evals/router_render.py
+tests/evals/cost_agg_render.py
+```
+
+Leading underscores mark attributes private *inside* a module (`_internal_fn`), not modules themselves — the stdlib reserves `_foo.py` for C-extension companions (`_collections_abc.py`). If a module is package-internal, control re-exports through `__init__.py` instead. Exempt: an `_internal/` package whose `__init__.py` documents the convention.
+
 ## Language-specific traps
 
 | Language   | Pattern                         | Issue                          |
@@ -90,10 +244,11 @@ return JSON.parse(data);  // let it throw
 
 ## Codebase type aliases — use them instead of bare primitives
 
-When the codebase has a shared alias for a value's shape, new code (including tests) should adopt it.
+When the codebase has a shared alias for a value's shape, new code (including tests) should adopt it. The alias name comes from inversion-protocol discovery in *this* repo — `<Alias>` is a placeholder; substitute whatever calibration surfaced.
 
 ```python
-# Bad — bare dict in a test helper, but the codebase already has a JSONDict alias
+# Bad — bare dict in a test helper, but the codebase already has an <Alias>
+# (discovered via inversion: e.g., a JSON-shaped dict alias with 100+ hits)
 def _state(**overrides) -> dict:
     ...
 
@@ -101,24 +256,24 @@ def test_thing():
     captured: dict = {}
     ...
 
-# Good
-from app.types import JSONDict  # wherever the codebase keeps shared aliases
+# Good — substitute the alias the calibration ledger surfaced
+from app.types import <Alias>
 
-def _state(**overrides) -> JSONDict:
+def _state(**overrides) -> <Alias>:
     ...
 
 def test_thing():
-    captured: JSONDict = {}
+    captured: <Alias> = {}
     ...
 ```
 
-Threshold for "established alias": `git grep -E ': (JSONDict|UserId|...) ' -- '*.py'` returns ≥3 hits across adjacent files. Below that, the alias may be experimental — don't force it.
+Threshold for "established alias": verification query (preferred order: `ast-grep`, `rg`, `git grep`) returns ≥3 hits in adjacent files OR ≥10 hits repo-wide. The second clause catches diffs that introduce a brand-new directory (no neighbors yet) where the alias is in heavy use elsewhere. Below both thresholds, the alias may be experimental — don't force it.
 
-Generalizes to other shapes:
+Generalizes to other shapes (substitute calibration-surfaced names):
 
-- `dict` / `list` / `tuple` / `set` → typed alias (`JSONDict`, `Headers`, etc.)
+- `dict` / `list` / `tuple` / `set` → typed alias (a JSON-dict alias, a `Headers` alias, etc.)
 - raw `str` for a closed set of values → `Literal["a", "b", "c"]` or `StrEnum`
-- raw `int`/`str` IDs → `NewType("UserId", int)` or branded type
+- raw `int`/`str` IDs → `NewType(...)` or branded type
 
 Watch for the asymmetric case: production code uses the alias, but a new test helper or test-local variable falls back to the bare primitive. That's the most common slip.
 
