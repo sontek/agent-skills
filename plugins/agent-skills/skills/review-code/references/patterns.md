@@ -78,6 +78,38 @@ try {
 return JSON.parse(data);  // let it throw
 ```
 
+## Incomplete type-dispatch / coercion
+
+A type-mapping function that enumerates some types and returns the value unhandled for the rest. Breaks only on the input that produces an unenumerated type, when that value hits a narrow downstream contract.
+
+```python
+# Bad — handles 5 DB scalar types, silently passes everything else through.
+# An Interval column yields timedelta → TableSpec's bool|str|float|int|None
+# union rejects it → the typed table never attaches, only for queries that
+# select a duration. The docstring lists 5 cases and reads "complete".
+def _normalize_cell(value: Any) -> Any:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, (dict, list)):
+        return json.dumps(value, default=str)
+    return value  # timedelta, memoryview, Enum, … slip through untouched
+
+# Good — add the known-missing branch AND a catch-all so the next schema
+# type degrades to a string instead of breaking the contract.
+    if isinstance(value, timedelta):
+        return str(value)
+    ...
+    return value if value is None or isinstance(value, (bool, int, float, str)) else str(value)
+```
+
+Verify completeness against the *source* of types, not the docstring: `rg 'sa\.(Interval|JSON|ARRAY|Numeric|Enum)\b'` over the schema in scope, and map each column type to a handled branch.
+
 ## Time-bomb constants
 
 A hardcoded date or year used as `now`, a contract boundary, or a default. Ships green and silently rots.
