@@ -67,6 +67,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [review-security](plugins/agent-skills/skills/review-security/SKILL.md) | OWASP-aligned security review with confidence-based reporting |
 | [review-django-access](plugins/agent-skills/skills/review-django-access/SKILL.md) | Django/DRF IDOR and access-control review |
 | [review-django-perf](plugins/agent-skills/skills/review-django-perf/SKILL.md) | Django performance review (N+1, unbounded queries, missing indexes) |
+| [review-perf](plugins/agent-skills/skills/review-perf/SKILL.md) | Application-tier performance review for non-Django stacks (Flask, FastAPI, Go, Node) — blocking I/O on async, algo blow-ups, per-item network loops, missing app cache |
 | [review-gha-security](plugins/agent-skills/skills/review-gha-security/SKILL.md) | GitHub Actions security review (pwn requests, expression injection, credential theft) |
 
 ### Planning & design
