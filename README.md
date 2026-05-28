@@ -81,6 +81,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [review-plan](plugins/agent-skills/skills/review-plan/SKILL.md) | Route an existing plan (file or plan-mode draft) through `senior-engineer` and `product-manager` for a judgment pass |
 | [auto-review-plan](plugins/agent-skills/skills/auto-review-plan/SKILL.md) | Loop `review-plan` and auto-apply small blocking edits until the plan is clean; flags structural recommendations for end-of-run approval |
 | [improve-architecture](plugins/agent-skills/skills/improve-architecture/SKILL.md) | Find architectural friction and design module-deepening refactors |
+| [document-architecture](plugins/agent-skills/skills/document-architecture/SKILL.md) | Generate a human-readable architecture document for a module/service using 4 parallel Explore sub-agents; embeds validated Mermaid diagrams via `draw-mermaid-diagram` / `draw-infra-diagram` |
 | [frontend-design](plugins/agent-skills/skills/frontend-design/SKILL.md) | Design distinctive frontend UIs with strong aesthetic direction (greenfield/redesign work) |
 
 ### Diagrams
