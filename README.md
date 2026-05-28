@@ -67,6 +67,8 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [review-security](plugins/agent-skills/skills/review-security/SKILL.md) | OWASP-aligned security review with confidence-based reporting |
 | [review-django-access](plugins/agent-skills/skills/review-django-access/SKILL.md) | Django/DRF IDOR and access-control review |
 | [review-django-perf](plugins/agent-skills/skills/review-django-perf/SKILL.md) | Django performance review (N+1, unbounded queries, missing indexes) |
+| [review-perf](plugins/agent-skills/skills/review-perf/SKILL.md) | Application-tier performance review for non-Django stacks (Flask, FastAPI, Go, Node) — blocking I/O on async, algo blow-ups, per-item network loops, missing app cache |
+| [optimize-perf](plugins/agent-skills/skills/optimize-perf/SKILL.md) | Apply perf fixes from `review-perf` with before/after benchmarks; reverts if the measured delta doesn't meet a threshold |
 | [review-gha-security](plugins/agent-skills/skills/review-gha-security/SKILL.md) | GitHub Actions security review (pwn requests, expression injection, credential theft) |
 
 ### Planning & design
@@ -79,6 +81,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [review-plan](plugins/agent-skills/skills/review-plan/SKILL.md) | Route an existing plan (file or plan-mode draft) through `senior-engineer` and `product-manager` for a judgment pass |
 | [auto-review-plan](plugins/agent-skills/skills/auto-review-plan/SKILL.md) | Loop `review-plan` and auto-apply small blocking edits until the plan is clean; flags structural recommendations for end-of-run approval |
 | [improve-architecture](plugins/agent-skills/skills/improve-architecture/SKILL.md) | Find architectural friction and design module-deepening refactors |
+| [document-architecture](plugins/agent-skills/skills/document-architecture/SKILL.md) | Generate a human-readable architecture document for a module/service using 4 parallel Explore sub-agents; embeds validated Mermaid diagrams via `draw-mermaid-diagram` / `draw-infra-diagram` |
 | [frontend-design](plugins/agent-skills/skills/frontend-design/SKILL.md) | Design distinctive frontend UIs with strong aesthetic direction (greenfield/redesign work) |
 
 ### Diagrams
