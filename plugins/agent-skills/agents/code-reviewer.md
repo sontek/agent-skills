@@ -62,6 +62,23 @@ Reviews need two disciplines: *coverage* (look at everything in scope) and *narr
 
    Hold `branch`-mode discipline: flag only breakage the diff **causes** in those files; do not report pre-existing, unrelated issues you pass on the way.
 
+2b. Trace transaction boundaries. A side effect dispatched around a commit is a correctness hazard that's invisible to any test running the writer and worker in one process. On a diff that adds or touches a transaction, **enumerate the boundaries and dispatches mechanically, then inspect each pair** — don't rely on noticing it:
+
+   ```bash
+   # transaction boundaries the diff touches (any stack)
+   rg -n 'transaction\.atomic|\.commit\(|tx\.Commit|@Transactional|\$transaction|\bCOMMIT\b' <changed-files>
+   # async / external dispatches to pair against them
+   rg -n '\.delay\(|\.apply_async|\.enqueue|perform_async|kafkaTemplate\.send|\.publish\(|queue\.add|requests\.(post|put)|send_mail' <changed-files>
+   # ast-grep for structure when available, e.g. every Celery dispatch regardless of receiver
+   ast-grep --lang python -p '$T.delay($$$)'
+   ```
+
+   For each boundary that has a paired dispatch, check **both** directions:
+   - **Dispatch ordered before commit** → the consumer races the writer and reads missing/stale data; a rollback orphans the side effect. Fix: an after-commit hook (`transaction.on_commit`, Spring `@TransactionalEventListener(AFTER_COMMIT)`, Rails `after_commit`, or enqueue only after the tx resolves).
+   - **Commit into an in-progress status with no reconciler** → the transaction commits a row into a *claimed* status (`PROCESSING`/`LOCKED`/`SENDING`) whose only exit is the post-commit dispatch. A lost dispatch — crash between commit and dispatch, broker reject — strands the row forever, because the retry/resolver path filters on the *prior* status. `on_commit` does **not** fix this (the in-process hook dies with the crash). Before flagging, grep for a sweeper that re-scans that status (`rg -n 'reap|stale|reclaim|stuck|lease' <tasks / scheduled-job files>`); flag only if none covers the new transition — and a reaper that exists for a *sibling* model but not this one is strong evidence the safety net was simply missed. Fix: a periodic reaper over the stuck status, or a transactional outbox — never `on_commit` alone for this direction.
+
+   The boundary/dispatch tokens above span Python, Java/Spring, Rails, Node, and Go — the enumeration is language-agnostic. Don't skip this step on a transaction-touching diff. See `references/patterns.md` ("Side effect dispatched around a transaction boundary") for the per-stack fix map.
+
 3. Calibrate to the codebase. Before judging style, typing, abstraction, or helper-density findings against universal defaults, sample 3–5 adjacent files (siblings + nearest parent module + the same test directory) and answer:
    - **Typing discipline.** Are local variables, function parameters, and return types annotated everywhere, only at module boundaries, or rarely? Does the repo declare shared type aliases (any project-coined name following the `TypeAlias`/`NewType`/parameterized-generic shape)? Try `rg -E '^(from .* import .*|[A-Z][A-Za-z0-9]+ *(:|=)[^=])' '<adjacent-glob>'` to surface aliases and per-line annotation density. The aliases this run cares about are whatever discovery in step 3b surfaces — not a fixed list.
    - **Helper-method density.** Does the module favor short helper methods or inline bodies? What's the typical method length?
@@ -145,6 +162,7 @@ Flag issues that:
 - Potential exceptions, null/undefined access, out-of-bounds access
 - Off-by-one errors, wrong operator, inverted conditions
 - Race conditions, shared-state hazards, missed awaits
+- **Side effect dispatched around a transaction boundary (dual-write).** Enumerated mechanically by investigation step 2b; flag the hazard on any stack. See `references/patterns.md` ("Side effect dispatched around a transaction boundary").
 - Backwards compatibility — breaking API changes without migration path
 - Refactors that look like no-ops but change invariants: `setdefault` vs `=` (conditional vs forced assignment), `or` vs `is None` (falsy vs missing), `dict.get(k)` vs `dict[k]` (silent vs exception), `Optional[T]` defaulting to `None` vs `T` defaulting to a value. When a refactor changes one of these — especially in shared/test infrastructure or env-handling code — flag it even if the new behavior looks "fine".
 - **Time-bomb constants.** A hardcoded date, year, or "current period" literal used as `now` / a contract boundary / a default that will silently drift as time passes (`CURRENT_DATE = "2026-05-21"`, `if year < 2025`, an eval question asking "this month" answered against a frozen date). The bug ships green and rots later. Demand either a comment naming the refresh trigger (`# refresh per release`, `# sunset Q4 2026`, `# refresh when eval baseline rolls`), a `date.today()` call, or a parameter the caller supplies. **An existing comment is not enough on its own** — generic justifications like `# fixed for reproducibility`, `# pinned`, or `# stable across runs` describe *what* the constant is, not *when* it gets refreshed. Flag those: the rule fires until the comment answers "what triggers a refresh."
@@ -337,4 +355,4 @@ Rules for the Callouts section:
 
 ## Common patterns to flag
 
-See `plugins/agent-skills/skills/review-code/references/patterns.md` for concrete examples — blast-radius breakage outside the diff, N+1 queries, missing effect deps, SQL injection, silent error swallowing, incomplete type-dispatch / coercion, time-bomb constants, fragile path traversal, `sys.path` manipulation, non-root `.gitignore`, closed two-state strings (use `bool`), positional tuples needing `NamedTuple`, stdlib reinvention, Python module-name conventions, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), codebase type aliases vs. bare primitives, trivial helper / premature abstraction, test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.
+See `plugins/agent-skills/skills/review-code/references/patterns.md` for concrete examples — blast-radius breakage outside the diff, N+1 queries, side effects dispatched around a transaction boundary (dual-write), missing effect deps, SQL injection, silent error swallowing, incomplete type-dispatch / coercion, time-bomb constants, fragile path traversal, `sys.path` manipulation, non-root `.gitignore`, closed two-state strings (use `bool`), positional tuples needing `NamedTuple`, stdlib reinvention, Python module-name conventions, language-specific traps (Python mutable defaults, JS missing await, Go goroutine leaks, TOCTOU, unclosed resources), codebase type aliases vs. bare primitives, trivial helper / premature abstraction, test-code idioms (parameterizable tests, log-output assertions, inline imports, pytest env-var setup), the bundled-refactor smell, and the existing-observability check. Load that file when a finding looks like one of those patterns.

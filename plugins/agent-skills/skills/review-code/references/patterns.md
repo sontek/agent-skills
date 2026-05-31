@@ -40,6 +40,59 @@ for user in users:
 users = User.objects.prefetch_related('profile')
 ```
 
+## Side effect dispatched around a transaction boundary (dual-write)
+
+A transaction commits data *and* fires an external side effect (background job, event, webhook, email, API call). If the dispatch isn't strictly after commit, a worker can race the writer and see no row / a stale row, or a rollback leaves the side effect orphaned. The bug is timing-dependent, so it passes every test that runs the transaction and the worker in the same process.
+
+```python
+# Bad — Django/Celery: task enqueued before the row it reads is committed.
+# The worker can start before COMMIT and miss the row; a rollback orphans the job.
+with transaction.atomic():
+    delivery = Delivery.objects.create(...)
+process_delivery.delay(delivery.id)        # races the commit
+
+# Good — dispatch only after the transaction commits
+with transaction.atomic():
+    delivery = Delivery.objects.create(...)
+    transaction.on_commit(lambda: process_delivery.delay(delivery.id))
+```
+
+The same lens applies to every stack that pairs a DB transaction with a queue or event bus — only the idioms change:
+
+| Stack | Txn boundary | Dispatch to gate | After-commit fix (dir 1) | Reconciler (dir 2) |
+|---|---|---|---|---|
+| Django + Celery | `transaction.atomic()` | `task.delay()` | `transaction.on_commit(...)` | periodic reaper over the status |
+| SQLAlchemy | `session.commit()` | `queue.enqueue()` | `after_commit` event listener | sweeper / outbox |
+| Java / Spring | `@Transactional` exit | `kafkaTemplate.send()` | `@TransactionalEventListener(AFTER_COMMIT)` | `@Scheduled` reaper |
+| Rails + Sidekiq | transaction block | `Job.perform_async` | `after_commit` callback | sweeper job |
+| Node + Prisma/BullMQ | `$transaction(...)` | `queue.add()` | enqueue after it resolves | cron sweep |
+| Go | `tx.Commit()` | `producer.Send()` | publish after `Commit()` returns nil | sweeper goroutine |
+| Rust (sqlx) | `tx.commit().await` | `queue.publish()` | enqueue after `commit()` is `Ok` | periodic reclaim task |
+
+Flag any enqueue / publish / `.delay` / `.apply_async` / `perform_async` / `kafkaTemplate.send` / outbound HTTP or mail call that reads or references data written in an enclosing (or just-closed) transaction and isn't gated on commit.
+
+### Two directions — check both
+
+**Direction 1 — dispatch before commit (ordering race).** The example above. Dispatch sits inside or straddles the transaction, so the worker can start before COMMIT. Fixed by `on_commit` / an after-commit hook.
+
+**Direction 2 — committed claim with no reconciler (lost-dispatch durability).** Subtler, and it survives a Direction-1 fix. A transaction commits a row into an *in-progress / claimed* status (`PROCESSING`, `LOCKED`, `SENDING`) whose **only** exit is a side effect dispatched *after* the commit. If that dispatch is lost — process crash between commit and dispatch, broker rejection — the row strands in that status forever, because the retry/resolver path filters on the *prior* status, not this one.
+
+```python
+# Bad — row committed as PROCESSING; only process_delivery advances it.
+# Crash between the commit and .delay() strands it: the resolver only
+# re-scans DEFERRED rows, so nothing ever reclaims a stuck PROCESSING row.
+with transaction.atomic():
+    delivery.status = PROCESSING
+    delivery.save(update_fields=["status"])
+process_delivery.delay(delivery.id)        # correct ordering, but lossy
+
+# Good — give the in-progress status a reconciler: a periodic reaper that
+# re-scans PROCESSING rows older than a timeout (the same shape as a
+# stale-task reaper / idempotency lease-reclaim), or a transactional outbox.
+```
+
+`on_commit` does **not** fix Direction 2 — the hook is in-process and dies with the crash. **Validation gate (do this before flagging):** grep the repo for a sweeper that already re-scans that status literal in a periodic task (`rg 'status=.*PROCESSING'` across `tasks.py` / scheduled jobs, look for "reap" / "stale" / "reclaim" / lease-expiry). Flag only if none covers the new status — and when one exists for a *sibling* model (e.g. a reaper for `Task` but not for the new `WebhookDelivery`), that's strong evidence the codebase intends this safety net and the new transition simply missed it. **Don't propose `on_commit` as the fix for Direction 2** — name the reaper/outbox; the hook only addresses Direction 1.
+
 ## TypeScript/React — missing effect dependency
 
 ```typescript
