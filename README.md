@@ -105,6 +105,15 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [sentry](plugins/agent-skills/skills/sentry/SKILL.md) | Fetch Sentry issues / events / transactions / logs via the Sentry API for debugging |
 | [uv](plugins/agent-skills/skills/uv/SKILL.md) | Use `uv` for Python in repos that have adopted it — `uv run`, `uv add`, inline script metadata, `uv_build` |
 
+### Sales & GTM
+
+| Skill | Description |
+| --- | --- |
+| [sales-email-draft](plugins/agent-skills/skills/sales-email-draft/SKILL.md) | Draft or polish a sales/GTM email in John Anderson's voice as Founder of Drape, applying Drape's brand voice and a Win Without Pitching posture |
+| [sales-email-prospect](plugins/agent-skills/skills/sales-email-prospect/SKILL.md) | Draft a prospecting/outreach email from the context you provide, aimed at earning a Probative Conversation |
+| [sales-email-followup](plugins/agent-skills/skills/sales-email-followup/SKILL.md) | Draft a post-meeting follow-up grounded in the actual meeting notes pulled from Google Docs (Google Drive) |
+| [sales-email-reply](plugins/agent-skills/skills/sales-email-reply/SKILL.md) | Draft a reply to a pasted email thread; applies the Win Without Pitching posture for sales-adjacent threads |
+
 ### Meta
 
 | Skill | Description |
@@ -112,6 +121,7 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [write-skill](plugins/agent-skills/skills/write-skill/SKILL.md) | Create new skills and agents with proper structure and triggers |
 | [review-skill](plugins/agent-skills/skills/review-skill/SKILL.md) | Audit existing skills against the `write-skill` rubric (frontmatter, trigger coverage, structure, references) |
 | [write-agents-md](plugins/agent-skills/skills/write-agents-md/SKILL.md) | Write concise, high-signal `AGENTS.md` / `CLAUDE.md` files |
+| [review-tone](plugins/agent-skills/skills/review-tone/SKILL.md) | Make any prose (email, PR description, commit, doc) read human, not robot: strips em-dashes, cuts AI-tell filler, signals weight in words. Shared final pass for the `sales-email-*` family |
 
 ## Available Agents
 
