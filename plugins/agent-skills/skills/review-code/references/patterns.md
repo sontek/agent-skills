@@ -126,6 +126,56 @@ WebhookDelivery.objects.filter(pk__in=ids, status__in=terminal).delete()
 
 The alternative fix to re-applying the predicate is to do it in one set-based statement, or lock the rows with a row lock (`SELECT ... FOR UPDATE` / `select_for_update()`) across the read and write.
 
+### Single-entity variant — check-then-act
+
+The same race over one row instead of a set, and the IN-set greps miss it. A value is read, something changes it, then a decision uses the value captured earlier. **There is no reliable lexical anchor — trace the data flow from the write backward, don't grep the read by name.** The read can be named anything; matching `prior`/`old`/`existing` catches it only by luck.
+
+```python
+# Bad #1 — `prior` is read, the row is mutated, then a decision uses stale `prior`.
+prior = Branch.objects.filter(repository=repo, name=name).values_list("status", flat=True).first()
+branch = service.sync_single_branch(repo, name)        # mutates the row (update_or_create)
+if branch.status == ACTIVE and prior != ACTIVE:        # decides on the pre-mutation snapshot
+    invalidate_branch_names(repo.organization_id, repo.id)
+
+# Bad #2 — SAME bug, no tell-tale name. `merged_lookup` is read before the row lock,
+# so the decision runs on a pre-lock snapshot a concurrent merge webhook already changed.
+merged_lookup = self._load_merged_pr_lookup(repo)      # read OUTSIDE the lock
+with transaction.atomic():
+    branches = Branch.objects.filter(repository=repo).select_for_update()
+    for branch in branches:
+        desired = self._desired_status(branch, merged_lookup.get(branch.name))  # stale input
+        ...                                            # reverts a just-merged branch to ACTIVE
+
+# Good — read the decision inputs inside the same transaction/lock as the write, or
+# derive the transition from the write's own before/after instead of a separate read.
+```
+
+Anchor on the **write** (`save`/`update`/`upsert`/`delete`, a cache bust, a dispatch, or a branch gating one) and trace back: does it depend on a value read earlier in the scope, before a mutating op, and is that read under the same lock? **Validation gate:** flag only if another path can change that value concurrently *and* the read and the act aren't already under one transaction / row lock. Be honest about severity — when the worst case is a briefly-stale cache that self-heals on the next sync, it's a low-priority nudge, not a blocker.
+
+## Nullable input collapsing into a consequential default
+
+A state/return/branch decision derived from a value that can be null or absent, where the null-guard is folded into the test so that "missing" and "present-but-test-false" produce the **same** branch — and that branch is the consequential one (a terminal/destructive/hiding state, an access decision, a silent skip). The short-circuit quietly equates *unknown* with *no*.
+
+```python
+# Bad — last_commit_timestamp is null=True (the provider sets it None when the
+# commit-date fetch fails). A branch that IS present on the remote, with a merged
+# PR but no known commit time, short-circuits `revived` to False → MERGED, so it's
+# hidden from the selector — the exact symptom this code was meant to fix.
+revived = (
+    branch.last_commit_timestamp is not None
+    and branch.last_commit_timestamp > merged_at
+)
+return Branch.Status.ACTIVE if revived else Branch.Status.MERGED
+
+# Good — decide what the *absent* case should mean, separately from the comparison.
+# A branch present on the remote with unknown commit time is safer ACTIVE than MERGED.
+if branch.last_commit_timestamp is None:
+    return Branch.Status.ACTIVE          # on remote, evidence missing → stay live
+return Branch.Status.ACTIVE if branch.last_commit_timestamp > merged_at else Branch.Status.MERGED
+```
+
+The shape is language-agnostic — `x?.foo ?? FALLBACK`, `x != null && cond ? A : B`, `coalesce(x, default)` all hide the same question. **Validation gate:** the value must be genuinely nullable (`null=True` / `Optional[...]` / `| None` / an API field that can be omitted — confirm it), and the absent-case branch must be the consequential one. A nullable value defaulting into a harmless neutral state is not a bug. Ask: *should "unknown" really behave like "no" here?*
+
 ## TypeScript/React — missing effect dependency
 
 ```typescript
