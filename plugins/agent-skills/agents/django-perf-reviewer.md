@@ -143,7 +143,7 @@ users = User.objects.all()[:100]
 
 - [ ] Table is large (10k+ rows) or will grow unbounded
 - [ ] No pagination class, paginate_by, or slicing
-- [ ] This runs on user-facing request (not background job with chunking)
+- [ ] It loads the full set without chunking. A background/scheduled job that *chunks* (`iterator(chunk_size=...)`, `[:N]` batches) is fine; one that materializes the whole queryset (a bare `for x in qs` or `list(qs)`) IS in scope, request or not.
 
 ## Priority 3: Missing indexes (HIGH)
 
@@ -241,11 +241,13 @@ for obj in queryset:
 queryset.delete()
 ```
 
+**Scheduled jobs are not exempt.** A Celery beat / cron / periodic task that sweeps an unbounded queryset row-by-row (`for x in qs: x.save()`) every few minutes is a textbook write loop: N UPDATEs, N row locks, one long-running transaction contending with live traffic, replication lag. No user waits on it, but *frequency × unbounded volume × lock contention* is the risk — "it's a background task" is not a reason to skip it. Only a genuinely one-time backfill (run once, then deleted) is exempt. Prefer `qs.update(...)` (one value for all rows) or `bulk_update` (per-row values).
+
 ### Validation checklist for write loops
 
-- [ ] Loop iterates over 100+ items (or unbounded)
+- [ ] Loop iterates over 100+ items (or unbounded — an unfiltered/uncapped sweep is unbounded by definition)
 - [ ] Each iteration calls create(), save(), or delete()
-- [ ] This runs on user-facing request (not one-time migration script)
+- [ ] It is NOT a genuinely one-time backfill. A recurring scheduled job (beat, cron, periodic management command) IS in scope.
 
 ## Priority 5: Inefficient patterns (LOW)
 
@@ -347,9 +349,8 @@ If the answer to any is "no" — remove the finding.
 
 - Test files
 - Admin-only views
-- Management commands
 - Migration files
-- One-time scripts
+- Genuinely one-time backfills / data-migration scripts (run once, then deleted). A *recurring* scheduled job (Celery beat, cron, periodic management command) is NOT exempt — see Priority 4.
 - Code behind disabled feature flags
 - Tables with <1000 rows that won't grow
 - Patterns in cold paths (rarely executed code)

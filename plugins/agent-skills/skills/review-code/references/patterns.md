@@ -93,6 +93,39 @@ process_delivery.delay(delivery.id)        # correct ordering, but lossy
 
 `on_commit` does **not** fix Direction 2 — the hook is in-process and dies with the crash. **Validation gate (do this before flagging):** grep the repo for a sweeper that already re-scans that status literal in a periodic task (`rg 'status=.*PROCESSING'` across `tasks.py` / scheduled jobs, look for "reap" / "stale" / "reclaim" / lease-expiry). Flag only if none covers the new status — and when one exists for a *sibling* model (e.g. a reaper for `Task` but not for the new `WebhookDelivery`), that's strong evidence the codebase intends this safety net and the new transition simply missed it. **Don't propose `on_commit` as the fix for Direction 2** — name the reaper/outbox; the hook only addresses Direction 1.
 
+## Non-atomic read-modify-write over a row set (TOCTOU)
+
+A "fetch the keys matching a predicate, then mutate/delete those keys in a *separate* statement" sequence is a time-of-check/time-of-use race. Between the read and the write, a concurrent transaction can move a row *out* of the predicate — but the write, keyed only by `id`/`pk`, still hits it. Classic lost-update / phantom-delete. The tell is a fetch filtered on a *mutable state column* whose follow-up write drops that column from its filter.
+
+```python
+# Bad — fetch terminal rows, then delete them by id only.
+# A row replayed back to PROCESSING between the two statements is still
+# in `ids`, so the delete destroys an active delivery.
+while True:
+    ids = list(
+        WebhookDelivery.objects.filter(status__in=terminal, received_at__lt=cutoff)
+        .values_list("id", flat=True)[:batch_size]
+    )
+    if not ids:
+        break
+    WebhookDelivery.objects.filter(pk__in=ids).delete()   # predicate dropped
+
+# Good — re-apply the predicate on the mutating statement, so a row that
+# left `terminal` in the gap is skipped (one extra WHERE term, atomic at the DB).
+WebhookDelivery.objects.filter(pk__in=ids, status__in=terminal).delete()
+```
+
+**Validation gate (do this before flagging):** confirm the filtered column is actually *mutable for these rows* — grep for another code path that writes that column (`rg 'status\s*=' / .update(status=`, a replay/reopen/retry/requeue action). If nothing else can transition a fetched row back out of the predicate, there is no race and you should not flag it. The shape is language- and stack-agnostic — the anchor is a mutate/delete keyed by a *collection* of keys whose originating read filtered on a mutable column:
+
+- raw SQL: `SELECT id ... WHERE status='done'` then `DELETE ... WHERE id IN (...)`
+- Django / SQLAlchemy: `filter(pk__in=ids)` / `where(Model.id.in_(ids))`
+- Rails AR: `where(id: ids).delete_all` after `pluck(:id)`
+- Node: Prisma `deleteMany({ where: { id: { in: ids } } })`, Knex `whereIn('id', ids).del()`
+- Go: `db.Where("id IN ?", ids).Delete(...)` after a `Pluck`/`Select("id")`
+- Java/JPA: `deleteAllById(ids)` after `findAll(...)`
+
+The alternative fix to re-applying the predicate is to do it in one set-based statement, or lock the rows with a row lock (`SELECT ... FOR UPDATE` / `select_for_update()`) across the read and write.
+
 ## TypeScript/React — missing effect dependency
 
 ```typescript

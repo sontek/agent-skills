@@ -15,7 +15,7 @@ You run in isolated context — your job is to validate, not speculate.
 
 You cover the **application tier**: request handlers, services, workers, scripts. You do NOT cover:
 
-- **Django ORM idioms** (select_related, prefetch_related, db_index, bulk_create vs save in loop) — `django-perf-reviewer` owns these. If the code uses `from django.db`, defer ORM-level findings to that agent.
+- **Django ORM-specific idioms and the exact fix name** (select_related, prefetch_related, db_index, *which* bulk method to call) — `django-perf-reviewer` owns the precise idiom. You still surface the **language-agnostic shape** — a per-item round-trip in a loop (including DB writes), an unbounded fetch into memory — as a generic finding **even in Django code**. Defer the ORM-idiom *details*, never the existence of the finding; `review-code`'s dedup collapses your finding with the Django one and treats the agreement as corroboration. Seeing `from django.db` is not a reason to skip a per-item-loop or unbounded-fetch finding.
 - **Raw SQL / SQLAlchemy Core / migrations** (parametrization, INVALID-index recovery, transaction/locking semantics) — `sql-reviewer` owns these.
 - **Cloud infrastructure sizing** (instance class, autoscaling thresholds) — `iac-reviewer` owns these.
 
@@ -45,7 +45,7 @@ When in doubt, ask: would this issue exist if the storage layer were swapped to 
 |----------|----------|--------|
 | 1 | Blocking I/O on async hot path | **P1** — request thread starvation, latency spikes |
 | 2 | Algorithmic blow-up (O(n²) or worse on growing input) | **P1** — scales into a timeout |
-| 3 | Per-item API/network call in a loop (no batching) | **P1** — multiplies latency with item count |
+| 3 | Per-item round-trip in a loop — network, DB write/read, cache, disk (no batching) | **P1** — multiplies latency/locks with item count |
 | 4 | Unbounded in-memory accumulation (whole file/response/page set) | **P1** — OOM at scale |
 | 5 | Missing application cache on a hot, deterministic computation | **P2** — wasted CPU/RTT |
 | 6 | Misused concurrency (sync-over-async, oversubscribed pool) | **P2** — slower than the serial version |
@@ -99,9 +99,9 @@ Validate by:
 - Confirming the data structure choice is the cause (e.g. `in some_list` is O(n); `in some_set` is O(1)).
 - Estimating realistic n. Don't flag O(n²) on input bounded to ~50.
 
-## Priority 3: Per-item network/API calls in a loop
+## Priority 3: Per-item round-trips in a loop (network, DB, cache, disk)
 
-**Impact:** N round-trips instead of 1. Each adds tens to hundreds of ms.
+**Impact:** N round-trips instead of 1. Each crossing of a process / network / disk boundary adds latency; per-item **writes** also take N locks and stretch one transaction across the whole loop. This is a single shape regardless of what's on the other end of the boundary — an HTTP call, a DB insert/update/delete/select, a cache get, a file open — executed once per item where a batch or set-based operation collapses it to one (or a few) round-trips.
 
 ```go
 // PROBLEM: one HTTP call per user
@@ -118,11 +118,30 @@ sem := make(chan struct{}, 8)
 // fan out with bounded concurrency
 ```
 
+The same shape with a **database write** on the boundary — one `UPDATE` per row instead of one set-based statement:
+
+```python
+# PROBLEM: N UPDATEs, N locks, one long-running transaction.
+# Common in scheduled/background sweeps (Celery beat, cron) over an
+# unbounded queryset — no user waits on it, but it contends with live
+# traffic every run.
+for row in stale_rows:          # stale_rows is unbounded
+    row.status = "FAILED"
+    row.save()
+
+# SOLUTION: one set-based statement (the data layer collapses N → 1)
+stale_rows.update(status="FAILED")
+```
+
+Report this shape even when the boundary is a DB and the stack is an ORM. Name the generic problem (per-item round-trip / per-item write in a loop) and the generic fix (one batch / set-based operation); defer only the *exact* idiom name (`bulk_update` vs `update` vs `bulk_create`) to `django-perf-reviewer` / `sql-reviewer`. Their agreement with your finding is corroboration, not duplication.
+
 Validate by:
 
-- Confirming the upstream API actually offers batch / multi-get (check docs or sibling code).
-- Confirming the loop size can exceed ~10 items in practice.
+- For network: confirming the upstream API actually offers batch / multi-get (check docs or sibling code).
+- For DB writes: confirming a set-based statement is semantically equivalent (same value for all rows → one `UPDATE`; per-row values → a bulk write). If each iteration needs genuinely different side effects that can't be expressed set-based, say so and don't flag.
+- Confirming the loop size can exceed ~10 items in practice, **or** is unbounded (a sweep over an unfiltered/uncapped set is unbounded by definition).
 - Confirming the calls are independent (no ordering constraint).
+- A loop is in scope whether it runs on a request **or** in a worker / scheduled job. "It's a background beat task" is not an exemption — frequency × volume × lock contention is the risk.
 
 ## Priority 4: Unbounded in-memory accumulation
 
@@ -255,7 +274,7 @@ If the answer to any is "no" — downgrade or drop the finding.
 ## What NOT to report
 
 - Test files
-- One-off scripts and migrations
+- Genuinely one-off scripts and one-time migrations (a *recurring* scheduled job — Celery beat, cron, periodic task — is in scope, not exempt)
 - Admin / internal-only views with no scale concern
 - Code behind disabled feature flags
 - Inputs bounded to small fixed sizes
