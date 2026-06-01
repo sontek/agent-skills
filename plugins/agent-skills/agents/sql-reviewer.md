@@ -25,7 +25,7 @@ You run in isolated context — your job is to validate, not speculate.
 | 1 | SQL injection / non-parametrized SQL | **P0/P1** — arbitrary SQL from untrusted input |
 | 2 | Migration / DDL safety | **P1** — failed/irreversible migration, silently broken index |
 | 3 | Transaction & locking semantics | **P1/P2** — leaked settings, aborted transactions, corruption |
-| 4 | Query performance (N+1, unbounded) | **P1/P2** — timeouts, OOM at scale |
+| 4 | Query performance (N+1, unbounded, per-row write loops) | **P1/P2** — timeouts, OOM, lock contention at scale |
 
 ## Priority 1: Injection / parametrization
 
@@ -95,11 +95,19 @@ for row in conn.execute(select(Parent.id)):
 # PROBLEM: unbounded result set materialized into memory
 rows = conn.execute(select(BigTable)).all()
 
+# PROBLEM: per-row write loop — one UPDATE/INSERT/DELETE per iteration instead
+# of one set-based statement. N round trips, N row locks, one long-running
+# transaction. The write analog of N+1, and just as common in recurring sweeps.
+for row in stale_rows:
+    conn.execute(update(Delivery).where(Delivery.id == row.id).values(status="FAILED"))
+# FIX: one set-based statement —
+#   conn.execute(update(Delivery).where(Delivery.status.in_(stuck)).values(status="FAILED"))
+
 # PROBLEM: LIMIT/DISTINCT applied before an aggregate filter (HAVING / window),
 # so eligible rows beyond the first N partitions are silently dropped.
 ```
 
-Validate by: confirming the loop issues per-iteration queries, the table is large, and there's no pagination/streaming (`yield_per`, server-side cursor) already in place. Reuse `plugins/agent-skills/skills/review-code/references/patterns.md` ("Python/Django — N+1 query") for the shared shape.
+Validate by: confirming the loop issues a read **or a write** per iteration, the table is large or the set is unbounded, and there's no batching/pagination/streaming already in place (`yield_per`, server-side cursor, `executemany`, or a single set-based statement). A recurring scheduled job (Celery beat, cron, periodic task) over an unbounded set IS in scope — it is not a cold path just because no user waits on it; *frequency × unbounded volume × lock contention* is the risk, and only a genuinely one-time backfill is exempt. Reuse `plugins/agent-skills/skills/review-code/references/patterns.md` ("Python/Django — N+1 query") for the shared shape.
 
 ## Validation requirements
 
@@ -149,6 +157,6 @@ If no issues found: "No data-layer issues identified after reviewing [files] and
 - "Use the ORM instead of raw SQL" (or vice versa) as a blanket preference
 - Parametrized SQL that's already safe
 - Migrations on small/fresh tables where the lock or failure mode can't bite
-- N+1 on cold paths or tables that won't grow
+- N+1 or per-row write loops on genuinely cold paths or tables that won't grow — but a *recurring* scheduled sweep (beat/cron) over an unbounded set is NOT a cold path, even on a maintenance queue
 - Style, naming, formatting
 - Pre-existing data-layer code the diff didn't touch (in `branch` mode)
