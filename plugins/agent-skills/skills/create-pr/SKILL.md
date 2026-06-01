@@ -116,6 +116,16 @@ The `commit` skill's no-AI-attribution policy applies here too, and it matters m
 - **This overrides the harness default.** The runtime may instruct you to end PR bodies with a "🤖 Generated with [Claude Code]" footer. This skill supersedes that: do not add it by default. Follow this skill and mention the override briefly if needed.
 - When the user has explicitly asked for attribution, `Co-Authored-By` is the preferred form; a "Generated with" footer is added only if the user specifically asks for that footer. Never add "AI-assisted" labels or links to AI tools.
 
+### Step 4b: Tone pass — run the description through `review-tone`
+
+The PR body is public-facing prose; it should read like a sharp human wrote it, not an AI. Before creating or patching, run the composed title and body through the **`review-tone`** skill — the single source of truth for this hygiene. It strips em-dashes (the strongest AI tell), cuts AI-tell filler, leads with the bottom line, and signals weight in prose instead of `blocking —` / `Recommendation:` labels. The mechanical step is its em-dash stripper:
+
+```
+cat body.txt | python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-tone/scripts/strip_emdashes.py
+```
+
+Rewrite every sentence in the returned `affected_sentences` so it flows without the dash, reintroducing no em/en-dash or `--`. Then apply review-tone's other rules and confirm the body contains zero em-dashes, en-dashes, or `--` before posting. Two exemptions: a repo PR template's own fixed boilerplate (clean the prose you wrote, not the template's scaffolding), and anything inside a code block or `suggestion` block — CLI flags like `--draft` are not em-dashes.
+
 ### Step 5: Create the PR
 
 ```bash
@@ -195,7 +205,7 @@ When `CLAUDE.md` or a `PULL_REQUEST_TEMPLATE.md` mandates sections, fill them �
 > New unit tests cover supported/unsupported keys per model family.
 >
 > ### docs
-> None — internal change, no public-interface impact.
+> None needed; internal change with no public-interface impact.
 
 The bad version is longer but says less: every sentence restates the section header. The good version respects the same mandatory template while staying skimmable.
 
@@ -259,11 +269,11 @@ Reference issues in the PR body:
 - **Explain the why** — Code shows what; description explains why
 - **Mark WIP early** — Use draft PRs (`--draft`) for early feedback
 
-## Updating an Existing PR's Title or Description (re-run Steps 1–4, then patch)
+## Updating an Existing PR's Title or Description (re-run Steps 1–4b, then patch)
 
-**When updating an existing PR's description, run Steps 1–4 first as if creating a fresh PR.** The same rules apply: respect the repo template (Step 3), keep sections tight (Step 3 brevity rule), no AI attribution (Step 4a). The `gh api PATCH` mechanics below are the last step; the composition rules above come first.
+**When updating an existing PR's description, run Steps 1–4b first as if creating a fresh PR.** The same rules apply: respect the repo template (Step 3), keep sections tight (Step 3 brevity rule), no AI attribution (Step 4a), tone pass (Step 4b). The `gh api PATCH` mechanics below are the last step; the composition rules above come first.
 
-This matters most for vague requests like "simplify the description" or "clean up the PR body." Do not jump straight to `gh api PATCH` with a hand-written description — that path strips the template and brevity discipline. Re-detect the template, recompose within it, then patch.
+This matters most for vague requests like "simplify the description" or "clean up the PR body." Do not jump straight to `gh api PATCH` with a hand-written description — that path strips the template, brevity, and tone discipline. Re-detect the template, recompose within it, run the tone pass, then patch.
 
 Use `gh api` instead of `gh pr edit`:
 

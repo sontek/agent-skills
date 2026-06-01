@@ -1,6 +1,6 @@
 ---
 name: review-tone
-description: Review and fix the tone of a piece of writing so it reads like a sharp human, not an AI or a form. Strips em-dashes and other AI tells, cuts filler and robotic hedging, and reports what changed plus the cleaned text. Use on emails, PR descriptions, review comments, commit messages, docs, or any prose — "review the tone", "does this read human", "strip the em-dashes", "de-slop this". Invoked as the final pass by the sales-email-* skills; pairs with review-pr's comment-style for PR comments.
+description: Review and fix the tone of a piece of writing so it reads like a sharp human, not an AI or a form. Strips em-dashes and other AI tells, cuts filler and robotic hedging, and reports what changed plus the cleaned text. Use on emails, PR descriptions, review comments, commit messages, docs, or any prose — "review the tone", "does this read human", "strip the em-dashes", "de-slop this". Invoked as the final pass by the sales-email-* and create-pr skills, and to clean review-pr's comments; pairs with review-pr's comment-style for PR comments.
 argument-hint: '<text to review, or a path/description of what to clean>'
 allowed-tools: Read, Write, Bash
 ---

@@ -2,7 +2,7 @@
 
 The value of this skill is that the output reads like a sharp human reviewer, not a linter dump. Findings from the agents arrive in rubric form (priority codes, "Finding:" headers, restated code). Rewrite them.
 
-The general "reads human, not robot" rules below (no em-dashes, weight-in-prose instead of label prefixes, plain words over jargon, no posture-narration, no AI attribution) are the medium-agnostic hygiene owned by the `review-tone` skill — this file is the PR-comment layer on top: anchoring to `file:line`, `suggestion` blocks, sub-agent invisibility, and the before/after conversions. Keep the two consistent; if you change a shared rule, change it in `review-tone` too.
+The general "reads human, not robot" rules below (no em-dashes, weight-in-prose instead of label prefixes, plain words over jargon, no posture-narration, no AI attribution) are the medium-agnostic hygiene owned by the `review-tone` skill — this file is the PR-comment layer on top: anchoring to `file:line`, `suggestion` blocks, sub-agent invisibility, and the before/after conversions. Keep the two consistent; if you change a shared rule, change it in `review-tone` too. The em-dash rule is mechanical: run the composed comments through review-tone's stripper (`skills/review-tone/scripts/strip_emdashes.py`) and rewrite any flagged sentence before presenting — leave code and `suggestion` blocks alone.
 
 ## Tone rules
 
