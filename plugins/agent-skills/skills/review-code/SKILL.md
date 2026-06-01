@@ -55,6 +55,7 @@ Light pass only — do NOT review the code yourself.
 
 - Read the branch summary / PR description if available (`gh pr view --json title,body` when a PR exists).
 - **Claims audit.** When the PR description states concrete numbers, defaults, or behavioral claims ("defaults to 8 GB", "lowers the timeout to 30s", "now retries 3 times"), spot-check them against the diff and forward any mismatch to the agents as a candidate finding — the description may describe an earlier revision. Don't audit prose intent, only checkable claims.
+- **Author-declared risk areas.** Scan the description for the author's own pointers at risk — "worth a careful look", "I'm not sure about", "the tricky/risky part is", "needs a close look", "double-check the X logic". Forward each, verbatim, to the agents as a **mandatory deep-dive target** — this is where the author already suspects a defect, and it's the highest-yield place to look (a senior reviewer reads these first, and it's a large part of why a whole-diff bot lands findings here). Distinct from the claims audit: claims are checkable facts; risk areas are the author's unease about correctness.
 - Capture any caller "don't flag this, it's intentional" notes verbatim.
 - Note whether `REVIEW_GUIDELINES.md` exists (the agents load it; just confirm it's there).
 
