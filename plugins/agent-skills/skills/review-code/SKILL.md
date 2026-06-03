@@ -71,6 +71,7 @@ Merge the raw findings into one deduplicated report:
 - **Drop noise.** In `branch` mode, drop findings outside the diff.
 - **Normalize severity to one ruler.** Each agent uses its own scale; map them onto a shared `P0`–`P3` band so the report sorts cleanly and downstream tooling (e.g. `auto-review-code`) can triage uniformly. This is scale-mapping, not second-guessing — keep each agent's native label in the line.
 - **Don't re-review.** Trust each agent's call; your job is consolidation, not a fresh opinion.
+- **Preserve the P3 nudge band.** Each reviewer separates its gating findings from a low-severity "Minor / nudges" band (code-reviewer's P3 section, the other reviewers' advisory hits). Carry those through verbatim into the report's own Minor / nudges section — don't fold them into the gating list and don't drop them. A validated P3 a reviewer already surfaced (a new branch the diff shipped untested, a bare primitive where a codebase alias exists) is signal the author can scan and dismiss in one line; suppressing it is what makes a real finding look like a coverage miss. This is distinct from *inventing* low-value nits — see "What this review optimizes for".
 
 The IaC and SQL reviewers already emit `P0`–`P3`, so their bands carry over directly.
 
@@ -83,15 +84,21 @@ The IaC and SQL reviewers already emit `P0`–`P3`, so their bands carry over di
 
 Carry "Needs verification" findings through at their normalized band with the verification question intact — don't silently drop them.
 
-Output: group by normalized priority (P0 first), one finding per line, anchored and fingerprint-shaped:
+Output has two finding bands plus the callouts. **Findings (P0–P2)** is the gating "fix before merge" list, grouped by normalized priority (P0 first), one finding per line, anchored and fingerprint-shaped:
 
 ```
 [P0] path/to/file.py:42 | security | sql-injection-in-search — security-auditor (Critical, HIGH confidence)
 [P1] path/to/views.py:88 | access  | idor-order-detail        — django-access-reviewer (High)
 ```
 
-The `file:line | category | slug` portion is a stable fingerprint downstream tools rely on. Keep `branch`-mode Human Reviewer Callouts as a trailing section. For follow-up ("explain #2", "go deeper on the security findings"), re-invoke the relevant agent rather than answering from your own judgment.
+**Minor / nudges (P3)** is a trailing bullet list of the validated low-severity hits the reviewers surfaced (step 5's "Preserve the P3 nudge band"). Always emit it when any reviewer reported one; never drop it to make the report look tighter:
+
+```
+[P3] path/to/MessageBubble.tsx:170 | testing | inline-branch-untested — code-reviewer (P3)
+```
+
+The `file:line | category | slug` portion is a stable fingerprint downstream tools rely on. Keep `branch`-mode Human Reviewer Callouts as a final trailing section. For follow-up ("explain #2", "go deeper on the security findings"), re-invoke the relevant agent rather than answering from your own judgment.
 
 ## What this review optimizes for
 
-The goal is catching the **P1 class** — runtime crashes, broken deploys/migrations, and security-boundary regressions — not driving any external review bot to zero findings. Many low-severity bot comments (a duplicated constant, a mutable default that already has a guard, an unnecessary formatter-skip comment) are low value, and bots produce false positives and retract findings too. Spend the review's attention on what would actually break in production; don't pad the report to look thorough.
+The goal is catching the **P1 class** — runtime crashes, broken deploys/migrations, and security-boundary regressions — not driving any external review bot to zero findings. Don't *invent* low-value findings to look thorough: a duplicated constant, a mutable default that already has a guard, an unnecessary formatter-skip comment add noise, and bots produce false positives and retract findings too. But "don't pad" means don't manufacture nits — it is **not** license to drop a validated low-severity finding a reviewer actually surfaced. Those belong in the Minor / nudges band, where the author scans and dismisses them in one line; silently suppressing them is what makes a real finding look like a coverage gap (the failure mode this skill was bitten by). Spend the gating Findings band's attention on what would actually break in production, and let the nudge band carry the rest.
