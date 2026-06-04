@@ -54,6 +54,14 @@ Web research specialist. Produces source-cited findings with explicit confidence
 
 **Uses:** `WebSearch`, `WebFetch` for external sources; `Read`, `Grep`, `Glob`, `Bash` for local cross-referencing.
 
+### finding-verifier
+
+Adversarial fresh-context verifier for review findings. Receives only the *claim* and the code — never the finder's reasoning — and tries to refute each finding from the source, returning CONFIRMED / PLAUSIBLE / REFUTED with quoted evidence. Biased to keep ("PLAUSIBLE by default") so it demotes over-confident finder claims without suppressing real low-severity ones. Not a finder: it never invents new findings or re-grades for taste.
+
+**Auto-invokes when:** a review skill (`review-code`, `review-pr`, `review-security`) has a coalesced candidate list to fact-check before showing the author. The shared owner of the verification logic that used to live inline in `review-pr`.
+
+**Uses:** `Read`, `Grep`, `Glob`, `Bash` to trace data flow and call sites; `WebFetch` to confirm documented library/framework behavior.
+
 ## Adding a new agent
 
 1. Create `<role-noun-name>.md` in this directory

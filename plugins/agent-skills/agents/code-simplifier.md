@@ -155,6 +155,31 @@ Flag when ALL of:
 
 **Exempt:** deliberate extension points with subclass overrides in the same diff; methods hiding non-obvious computation; helpers called from 3+ sites with identical shape (those earn their keep).
 
+### structure.bandaid-special-case (severity: medium)
+
+A change implemented as a special case bolted onto shared infrastructure, where the same fix one level deeper needs no special case. The tell is a new `if <this specific input/type/name>:` branch (or an early-return, or a hand-added lookup-table entry) sitting inside a general-purpose function, handling one instance of a category the function otherwise treats uniformly. It's the altitude smell: the fix is too shallow, and the next input will need its own branch.
+
+```python
+# Bad — a per-type special case bolted onto a general serializer
+def serialize(value):
+    if isinstance(value, Decimal):       # <- the new branch
+        return str(value)
+    return _default(value)
+
+# Good — handle the category at the right depth: register Decimal in the
+# type-dispatch table the serializer already consults, so every caller and
+# every future numeric type flows through one mechanism instead of accreting
+# one branch per type.
+```
+
+Flag when ALL of:
+
+- The diff adds a branch / early-return / table-entry keyed to one **specific** value, type, name, or id.
+- It sits inside a function that handles a **category** the new case belongs to — a dispatcher, serializer, router, validator, renderer.
+- A deeper fix exists: the general mechanism (a dispatch table, registry, base method, config) could absorb the case.
+
+**Exempt:** a genuinely exceptional case with no category to generalize into; a documented temporary workaround that names its removal trigger (a linked bug, "remove when upstream ships X"); a deliberate hot-path fast-path. Because removing a bandaid changes structure, treat the fix as **higher-risk** — state the deeper alternative and the call sites it touches and let the user confirm, rather than auto-applying it.
+
 ### typing.codebase-alias-missed (severity: medium)
 
 A new declaration uses a bare primitive container (`dict`, `list`, `tuple`, `set`) or raw `str`/`int` where the codebase has an established type alias for that shape. The alias name comes from the Phase 0b calibration ledger — whatever discovery surfaced in *this* repo; the rule body uses `<Alias>` as a placeholder.

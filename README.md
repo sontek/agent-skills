@@ -62,8 +62,10 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 
 | Skill | Description |
 | --- | --- |
-| [review-code](plugins/agent-skills/skills/review-code/SKILL.md) | Prioritized code review (P0-P3) with fail-fast error-handling rubric; `branch` mode (diff vs. main) or `paths` mode (explicit file list) |
-| [auto-review-code](plugins/agent-skills/skills/auto-review-code/SKILL.md) | Loop `review-code` and `simplify` until no safe fixes remain; batches risky changes for a single end-of-run approval pass |
+| [review-code](plugins/agent-skills/skills/review-code/SKILL.md) | Prioritized code review (P0-P3) with fail-fast error-handling rubric; `branch` mode (diff vs. main) or `paths` mode (explicit file list). Fans out to specialist reviewers, then a fresh-context `finding-verifier` pass refutes weak findings |
+| [review-pr](plugins/agent-skills/skills/review-pr/SKILL.md) | Multi-reviewer PR review consolidated into human-toned comments for your approval (never posts unprompted). Two modes: incoming (someone else's PR) and `self` (self-review your own PR for completeness and merge-readiness) |
+| [auto-review-code](plugins/agent-skills/skills/auto-review-code/SKILL.md) | Loop `review-code` and `simplify-code` until no safe fixes remain; batches risky changes for a single end-of-run approval pass |
+| [simplify-code](plugins/agent-skills/skills/simplify-code/SKILL.md) | Route changed code through the `code-simplifier` agent's AI-slop rubric and apply the fixes (the built-in `/simplify` lacks the rubric) |
 | [review-security](plugins/agent-skills/skills/review-security/SKILL.md) | OWASP-aligned security review with confidence-based reporting |
 | [review-django-access](plugins/agent-skills/skills/review-django-access/SKILL.md) | Django/DRF IDOR and access-control review |
 | [review-django-perf](plugins/agent-skills/skills/review-django-perf/SKILL.md) | Django performance review (N+1, unbounded queries, missing indexes) |

@@ -297,20 +297,16 @@ The OWASP-derived reference library lives under `plugins/agent-skills/skills/rev
 |------------|------|
 | `.py`, `django`, `flask`, `fastapi` | `languages/python.md` |
 | `.js`, `.ts`, `express`, `react`, `vue`, `next` | `languages/javascript.md` |
-| `.go`, `go.mod` | `languages/go.md` |
-| `.rs`, `Cargo.toml` | `languages/rust.md` |
-| `.java`, `spring`, `@Controller` | `languages/java.md` |
+
+For a language without a dedicated guide (Go, Rust, Java, etc.), rely on the core `references/` above — they are language-agnostic — and apply the same patterns to that stack's idioms.
 
 ### Infrastructure guide
 
 | File type | Load |
 |-----------|------|
 | `Dockerfile`, `.dockerignore` | `infrastructure/docker.md` |
-| K8s manifests, Helm charts | `infrastructure/kubernetes.md` |
-| `.tf`, Terraform | `infrastructure/terraform.md` |
-| GitHub Actions, `.gitlab-ci.yml` | `infrastructure/ci-cd.md` |
-| AWS/GCP/Azure configs, IAM | `infrastructure/cloud.md` |
+| GitHub Actions, `.gitlab-ci.yml` | delegate to the `gha-security-reviewer` agent |
 
-All paths are relative to `plugins/agent-skills/skills/review-security/`. Use Read to load them as needed; don't load everything up front.
+All paths are relative to `plugins/agent-skills/skills/review-security/`. Use Read to load them as needed; don't load everything up front. Only the guides listed above ship today — don't try to Read a guide for a stack that isn't in these tables.
 
 Your goal: find the real vulnerabilities, explain them with exploitation clarity, and give the team enforcement-grade fixes. Not finding issues is acceptable — inventing them is not.

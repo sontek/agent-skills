@@ -149,6 +149,14 @@ If step 7 required code changes (from new feedback after CI passed), return to s
 
 **Stop:** No PR exists, branch needs rebase.
 
+## Git and GitHub safety
+
+A few operations in this loop can silently corrupt the branch or fake a success. Hold these rails:
+
+- **Never `gh pr merge --admin`.** It bypasses branch protection. A blocked merge is a signal to diagnose and fix the failing check, not to escalate past it — an override is the user's call to make, not yours.
+- **Default to plain `git rebase origin/main` from the feature branch** (fetch first). `git rebase --onto X Y branch` silently drops commits when `Y` is wrong; only reach for `--onto` when you can articulate what each of the three arguments does and have a specific reason to.
+- **`gh pr merge --auto` reporting `fatal: Not possible to fast-forward` is usually a false alarm.** The server-side merge often already succeeded before the local fast-forward attempt failed on a dirty working tree. Confirm with `gh pr view <n> --json mergedAt` before treating it as a failure or re-running anything.
+
 ## When scripts fail
 
 If `uv` isn't installed or a bundled script fails, fall back to raw `gh` CLI rather than aborting. See [references/fallbacks.md](references/fallbacks.md) for the equivalent `gh` invocations and runtime/parsing-error handling.
