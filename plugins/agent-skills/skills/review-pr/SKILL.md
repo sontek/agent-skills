@@ -1,6 +1,6 @@
 ---
 name: review-pr
-description: Review a pull request or branch by fanning out to specialized review sub-agents (code review, security, Django access/perf, GitHub Actions), then coalescing their findings into concise, human-toned suggested review comments for your approval. Use when asked to "review this PR", "do a full PR review", "give me review comments", "run all the reviewers", or "multi-agent review" — when you want consolidated comments to post, not fixes applied. Never posts comments or edits code without explicit approval. For a single-aspect pass use review-code or review-security; to auto-apply fixes use auto-review-code; to fix CI/feedback use iterate-pr.
+description: Review a pull request or branch by fanning out to specialized review sub-agents (code review, security, Django access/perf, GitHub Actions), then coalescing their findings into concise, human-toned suggested review comments for your approval. Use when asked to "review this PR", "do a full PR review", "give me review comments", "run all the reviewers", or "multi-agent review" — when you want consolidated comments to post, not fixes applied. Two modes: reviewing someone else's PR (default, proposes comments to post) and self-reviewing your own PR before you hand it off (`/review-pr self`, or "self-review my PR", "is my PR complete / merge-ready" — adds completeness and merge-readiness checks, output is a verdict for you). Propose-only in both modes: never edits code, never posts without approval. For a single-aspect pass use review-code or review-security; to auto-apply fixes use auto-review-code; to fix CI/feedback use iterate-pr.
 allowed-tools: Read, Grep, Glob, Bash, Task
 ---
 
@@ -9,6 +9,13 @@ allowed-tools: Read, Grep, Glob, Bash, Task
 Fan out to the specialized review agents, coalesce their findings, and turn them into the review comments a thoughtful human reviewer would leave on the PR. You **propose** comments; the user approves before anything is posted. You do not edit code and you do not post without explicit go-ahead.
 
 This differs from siblings: `review-code`/`review-security` run one agent and return findings verbatim; `auto-review-code` loops and auto-applies fixes; `iterate-pr` fixes CI. This skill consolidates *multiple* reviewers into postable comments for approval.
+
+## Modes
+
+- **Incoming review (default).** Reviewing someone else's PR or branch to leave feedback. Output is suggested comments for your approval to post. This is the rest of this document, steps 1–7.
+- **Self-review (`self`).** Reviewing your *own* just-authored PR before handing it off, to catch the completeness and merge-readiness gaps a diff-only pass misses. Shares the fan-out and coalesce (steps 1–4) but adds orchestrator-level passes and produces a verdict for you instead of postable comments — see [Self-review mode](#self-review-mode-self) at the end. Triggered by `/review-pr self [123]`, by a self-review phrasing ("review my own PR", "is this complete / merge-ready"), or auto-detected when the PR author is you (`gh api user --jq .login` matches the PR author) or it's your current local branch with no open PR. When genuinely unsure, default to incoming review.
+
+Both modes are **propose-only**: never edit code, never post or push without explicit approval. A review tells you what it found; you decide what to do with it.
 
 ## Process
 
@@ -67,3 +74,25 @@ Emit the consolidated comments as rendered markdown in chat, grouped by file, ea
 ### 7. Post on approval (optional)
 
 Only after the user picks comments, post them. Mechanics, batching, and the `gh`/GraphQL commands are in [references/posting.md](references/posting.md). Posted comments carry no AI-attribution markers (matching the repo's commit/PR convention). For a local-only branch with no PR, offer the comments as text or to open a PR first via `create-pr`.
+
+## Self-review mode (`self`)
+
+When the PR under review is your *own* (see [Modes](#modes)), the question changes. Incoming review asks "what comments would I leave"; self-review asks **"is my fix complete, and is this PR merge-ready, before I hand it off."** Run the normal fan-out and coalesce (steps 1–4) for correctness — the reviewers and `finding-verifier` work identically — then add the orchestrator-level passes below. They catch the omissions a per-finding, diff-only review structurally misses.
+
+- **Plan-vs-execution drift.** Reread the plan you wrote at the start of this task (the "what I'll do / keep / move" list). Diff it against the actual change: everything you said you'd KEEP still present, everything you'd MOVE in its new home with no facts lost in transit, everything you'd ADD in the diff, everything you'd REMOVE gone. For prose edits (SKILL.md, docs, tool descriptions), list the discrete facts in the old text vs the new — any fact in old-not-new must appear elsewhere or be justified as obsolete. Plan drift is the most common bug in refactors and is invisible to the per-finding reviewers, who never saw your plan.
+- **Breadth — did I fix every instance?** Identify the predicate your fix targets (a specific call shape, error path, filter), grep the whole repo for it, and for each hit *not* in your diff ask whether the same bug lives there. Unlike incoming review (which stays inside the diff and is careful about pre-existing code), self-review is allowed and expected to cross into pre-existing sites — fixing your bug everywhere is part of the fix. For every matching site: include it, or name it explicitly as a deliberate follow-up. "I'll do it later" is fine; silent omission is not. Name every site you considered and chose to skip.
+- **Mergeability.** Diff-clean is not merge-ready. Run `gh pr view <n> --json mergeable,mergeStateStatus,statusCheckRollup`. `mergeable` must be `MERGEABLE` (`CONFLICTING` needs a rebase on the base branch). The rollup should be non-empty with no `FAILURE`; an empty rollup when CI is configured means CI never fired (conflicts blocked it, or a token-opened PR suppressed it) — diagnose why. Don't call a PR ready while checks are `IN_PROGRESS`. This pass only *reports* the state; fixing the failures is `iterate-pr`'s job.
+- **PR hygiene** (when a PR exists). Every template `[ ]` checkbox checked or marked `[ ] N/A (reason)`; every `(describe…)` placeholder filled; a conventional-commit *title* (a `--fill` title can be a branch slug even when the commit body is fine — check the title separately); `Fixes #n` present if it closes an issue. No AI-attribution footer (per our convention — this is where we diverge from tools that add a "generated by" receipt).
+
+The metadata-staleness, sibling-test-coverage, and sibling-pattern-uplift checks are not listed here because the `code-reviewer` agent already runs them in the fan-out — they surface as ordinary findings and flow into "Completeness gaps" below.
+
+**Output is a verdict for you, not comments to post.** Lead with what's wrong — honest self-review: a test gap is a gap, not "acceptable"; a missed call site is a gap, not "out of scope." If you ran the breadth check and found nothing, say so; silence on an expected step reads as a skipped step. Structure:
+
+- **Plan drift** — items that didn't land as planned, or "none."
+- **Completeness gaps** — breadth misses, missing sibling tests, stale surface metadata, missing follow-up notes, or "none."
+- **Bugs** — from the reviewer fan-out, already verified by `finding-verifier`.
+- **Mergeability** — quote the `mergeable` / `mergeStateStatus` / CI values; don't paraphrase.
+- **PR hygiene.**
+- **Verdict** — one of: "clean, ready to merge" (only if every section above is empty and `mergeable` is `MERGEABLE` with required checks green); "fix before merge: <list>"; or "land as-is, follow-up needed: <list>."
+
+**Self-review is still propose-only.** List the high-confidence fixups you'd make, but do not apply them and do not push — surface the verdict and let the user decide, exactly as incoming review proposes comments without posting. To actually apply the fixups, hand off to `auto-review-code`; to drive CI green, `iterate-pr`.
