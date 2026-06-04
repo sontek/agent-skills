@@ -78,9 +78,13 @@ Caller notes (trust boundary):
 Follow your rubric: research before reporting, confidence-gate everything, output HIGH-confidence findings with full PoCs.
 ```
 
-### 4. Return the agent's output
+### 4. Verify before returning (independent backstop)
 
-Pass the agent's findings back to the caller verbatim. Don't summarize, re-prioritize, or filter — that defeats the independent-review value.
+The `security-auditor` already self-gates to HIGH confidence via its 5-part exploit model, so this is a light backstop, not a re-review — and it's still independent (a separate fresh agent, not your own judgment). If the auditor returned any findings, dispatch the **`finding-verifier`** agent (`subagent_type: agent-skills:finding-verifier`) once on them: pass each finding's fingerprint, claimed mechanism and consequence, and the diff scope, but **not** the auditor's reasoning. **Drop only REFUTED** findings — the ones the verifier proved wrong from the code (input that isn't actually attacker-controlled, a framework protection already in place). Keep CONFIRMED and PLAUSIBLE untouched. For a PLAUSIBLE finding whose `needs_confirmation` names a trust-boundary fact you can't see from code, surface the question alongside the finding rather than dropping it. Skip this step entirely if the auditor returned no findings.
+
+### 5. Return the output
+
+Pass the surviving findings back to the caller verbatim — minus anything the verifier refuted in step 4. Don't summarize, re-prioritize, or filter on your own judgment; the verifier's REFUTED calls are the only filter applied.
 
 If the caller wants follow-up (e.g., "explain the exploit", "propose the fix"), invoke the agent again with the relevant context rather than answering from your own judgment.
 
