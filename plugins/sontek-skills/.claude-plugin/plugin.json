@@ -1,0 +1,9 @@
+{
+  "name": "sontek-skills",
+  "description": "Agent skills and subagents for code review, security audits, Django/GHA reviews, commits, PRs, CI iteration, architectural planning, and persona-based judgment (senior engineer, security auditor, product manager, code simplifier)",
+  "version": "2.0.0",
+  "author": {
+    "name": "sontek"
+  },
+  "license": "MPL-2.0"
+}

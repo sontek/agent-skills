@@ -1,12 +1,12 @@
 {
-  "name": "agent-skills-local",
+  "name": "sontek-skills-local",
   "owner": {
     "name": "sontek"
   },
   "plugins": [
     {
-      "name": "agent-skills",
-      "source": "./plugins/agent-skills",
+      "name": "sontek-skills",
+      "source": "./plugins/sontek-skills",
       "description": "Agent skills for code review, commits, PRs, bug finding, and code cleanup",
       "version": "1.0.0",
       "license": "MPL-2.0"
