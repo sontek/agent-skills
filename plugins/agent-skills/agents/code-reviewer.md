@@ -102,6 +102,28 @@ Reviews need two disciplines: *coverage* (look at everything in scope) and *narr
 
    If the answer is "depends on an earlier read" and "no, the read isn't under the same lock," it's a check-then-act race: the decision runs on a stale snapshot (a reverted write, a missed or spurious side effect). The smell is structural — *read → mutate → decide-on-the-earlier-read* — so the absence of a `prior`-shaped name is **not** evidence of safety; a `merged_lookup` read before `select_for_update()` is the same bug. **Validation gate (before flagging):** confirm another path can actually change that value concurrently (the writer-exists check from the row-set case). Severity tracks the consequence: a stale value that self-heals on the next sync (a briefly stale cache) is a low-priority nudge, not a blocker — say so. Fix: read the prior state inside the same transaction / lock as the write, or derive the transition from the write's own before/after return instead of a separate earlier read.
 
+2d. Audit removed and replaced behavior (`branch` mode). A refactor that drops a guard reads as a clean diff — the deletion *is* the bug, and it's invisible if you only scan added lines. Go through every line the diff **deletes or replaces** and name what it enforced: a null/empty guard, a bounds or range check, a validation or allowlist, an error path / `raise`, a permission check, a default value, a regex anchor, a status/state filter. Then find where the new code re-establishes it.
+
+   ```bash
+   # Read the deletions directly — the '-' side of the hunk is the target.
+   git diff <base>...HEAD | rg '^-' | rg -v '^---'
+   ```
+
+   For each deleted guard/check/error-path, grep the new code for where the invariant is re-established — the validation may have moved to a serializer/`clean()`, the check pushed into a decorator or middleware, the default set upstream. **Validation gate (before flagging):** confirm it's genuinely gone, not relocated — a check that moved still covers the path. Flag only when nothing on any path reaching the same code re-enforces it. A *narrowed* check counts as a partial removal: a regex that lost an anchor (`^`/`$`/`\b`), an `and` that became an `or`, a `>=` that became a `>`, a validation that dropped a branch — flag the half that's now unguarded. The deletions span every language; the discipline is to read the `-` lines, not just the `+` lines.
+
+2e. Check wrapper/proxy re-entrancy. When the diff adds or modifies a type that **wraps another** — a cache, proxy, decorator, adapter, or any class that holds a collaborator and re-exposes its interface — verify every method routes to the *wrapped instance*, not back through a global/registry/session that resolves to the wrapper again. The classic bug: a caching provider holding `delegate` resolves an id via `session.get(id)` (which returns the cache) instead of `delegate.get(id)`, so the call re-enters the cache and recurses or serves stale data. Anchor on the wrapping type the diff introduces:
+
+   ```bash
+   # A new class that stores a passed-in collaborator and forwards to it.
+   rg -n 'self\.(delegate|inner|wrapped|_wrapped|target|backend|upstream|client|session)\s*=' <changed-files>
+   # structural, when available: a wrapper holding a delegate field
+   ast-grep --lang python -p 'class $C($$$):
+       def __init__(self, $D, $$$):
+           self.$F = $D'
+   ```
+
+   For each forwarding method, check the receiver: does it call `self.<delegate>.method()` (correct), or route through `self`/a global/a registry/`session` that resolves back to the wrapper (re-entrant)? **Validation gate (before flagging):** confirm the indirect path actually resolves back to *this* wrapper, not to a genuinely different instance — a wrapper that delegates to a separate backend by design is fine. Also check the wrapper forwards every method its callers use (grep the call sites); a missing passthrough silently hits a default or raises `AttributeError`. Flag re-entrancy that recurses or returns stale, or a missing forward a caller relies on.
+
 3. Calibrate to the codebase. Before judging style, typing, abstraction, or helper-density findings against universal defaults, sample 3–5 adjacent files (siblings + nearest parent module + the same test directory) and answer:
    - **Typing discipline.** Are local variables, function parameters, and return types annotated everywhere, only at module boundaries, or rarely? Does the repo declare shared type aliases (any project-coined name following the `TypeAlias`/`NewType`/parameterized-generic shape)? Try `rg -E '^(from .* import .*|[A-Z][A-Za-z0-9]+ *(:|=)[^=])' '<adjacent-glob>'` to surface aliases and per-line annotation density. The aliases this run cares about are whatever discovery in step 3b surfaces — not a fixed list.
    - **Helper-method density.** Does the module favor short helper methods or inline bodies? What's the typical method length?
