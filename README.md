@@ -73,6 +73,12 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | [optimize-perf](plugins/sontek-skills/skills/optimize-perf/SKILL.md) | Apply perf fixes from `review-perf` with before/after benchmarks; reverts if the measured delta doesn't meet a threshold |
 | [review-gha-security](plugins/sontek-skills/skills/review-gha-security/SKILL.md) | GitHub Actions security review (pwn requests, expression injection, credential theft) |
 
+### Implementation
+
+| Skill | Description |
+| --- | --- |
+| [fix-issue](plugins/sontek-skills/skills/fix-issue/SKILL.md) | Implement a fix for a bug/issue from scratch, reproduce-first (failing check → root-cause fix → verify → edge cases → hand off to `commit`/`create-pr`) |
+
 ### Planning & design
 
 | Skill | Description |
