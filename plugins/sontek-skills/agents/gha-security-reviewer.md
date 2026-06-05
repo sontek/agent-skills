@@ -97,7 +97,7 @@ Are `${{ }}` expressions used inside `run:` blocks in externally-triggerable wor
 
 - Map every `${{ }}` expression in every `run:` step
 - Confirm the value is attacker-controlled (PR title, branch name, comment body — not numeric IDs, SHAs, or repository names)
-- Confirm the expression is in a `run:` block, not `if:`, `with:`, or job-level `env:`
+- Confirm the expression is in a `run:` block, not `if:`, `with:`, or job-level `env:` — **with one exception:** a `with:` input the action re-interprets as code (notably `actions/github-script`'s `script:`, which runs as JavaScript, or any action that forwards its input into its own shell/`run:`) is exactly as injectable as a `run:` block. Treat those `with:` inputs like `run:`.
 
 ### Check 3: Unauthorized command execution
 
@@ -144,12 +144,12 @@ Before reporting, check if the pattern is actually safe:
 | `${{ github.repository }}` / `github.repository_owner` | Repo owner controls this |
 | `${{ secrets.* }}` | Not an expression injection vector |
 | `${{ }}` in `if:` conditions | Evaluated by Actions runtime, not shell |
-| `${{ }}` in `with:` inputs | Passed as string parameters, not shell-evaluated |
+| `${{ }}` in `with:` inputs **the action treats as plain data** | Passed as string parameters, not shell-evaluated — but **NOT** safe if the action re-interprets the input as code (`actions/github-script` `script:`, or an action that forwards it into its own `run:`); flag those like a `run:` block |
 | Actions pinned to full SHA | Immutable reference |
 | `pull_request` trigger (not `_target`) | Runs in fork context with read-only token |
 | Any expression in `workflow_dispatch`/`schedule`/`push` to protected branches | Requires write access — outside threat model |
 
-**Key distinction:** `${{ }}` is dangerous in `run:` blocks (shell expansion) but safe in `if:`, `with:`, and `env:` at the job/step level (Actions runtime evaluation).
+**Key distinction:** `${{ }}` is dangerous in `run:` blocks (shell expansion). It is safe in `if:` and `env:`, and in `with:` inputs the action treats as plain string parameters. The exception: a `with:` input the action **re-interprets as code** — `actions/github-script`'s `script:` (run as JavaScript), or any action that passes its input into its own `run:`/shell — is injectable exactly like a `run:` block. Flag attacker-controlled `${{ }}` in those.
 
 ## Step 3: Validate before reporting
 

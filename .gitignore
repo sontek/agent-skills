@@ -1,0 +1,11 @@
+# eval toolchain (pinned via evals/package.json + package-lock.json)
+evals/node_modules/
+# promptfoo local run cache / output
+evals/.promptfoo/
+evals/output.json
+.promptfoo/
+
+# promptfoo run artifacts
+evals/baseline.json
+evals/probe.json
+evals/*.local.json

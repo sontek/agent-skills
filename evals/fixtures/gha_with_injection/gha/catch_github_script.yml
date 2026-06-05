@@ -1,0 +1,16 @@
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          # The issue title is attacker-controlled and the `script:` input runs
+          # as JavaScript. A crafted title — e.g.  "); <payload> //  — breaks
+          # out of the string and executes in the workflow-token context. The
+          # old "with: is always safe" rule clears this; it must NOT.
+          script: |
+            console.log("Triaging: ${{ github.event.issue.title }}")

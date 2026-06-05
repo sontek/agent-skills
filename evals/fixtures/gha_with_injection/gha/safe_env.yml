@@ -1,0 +1,15 @@
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Triage
+        # The attacker-controlled title reaches the step through env, then is
+        # referenced as a shell variable — never re-parsed as code. Safe.
+        env:
+          TITLE: ${{ github.event.issue.title }}
+        run: |
+          echo "Triaging: $TITLE"
