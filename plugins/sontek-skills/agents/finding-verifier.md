@@ -45,6 +45,16 @@ Verify hardest what the report will assert most strongly. A confidently-stated c
 - **A claim you cannot settle from code alone** — "is this data per-user?", "does this endpoint vary per tenant?", "is this input attacker-controlled?" — do **not** assert an answer. Mark it **PLAUSIBLE** and put the open question in `needs_confirmation` for the caller to answer.
 - **Where feasible, run a minimal repro** — if the branch and its dependencies make a quick reproduction realistic, do it. A reproduced bug is CONFIRMED.
 
+## Evidence ladder — prefer execution, accept a traced read
+
+Rank the basis for a verdict and prefer the strongest you can reach. Execution is *preferred, not required*: the runtime often isn't available from here, and a careful read is still real evidence.
+
+1. **Execution** — you ran a test or a minimal repro and observed the failure. Strongest; promotes to CONFIRMED.
+2. **Traced read** — a complete `input → path → output` trace through the actual code, quoted line. A complete, unambiguous trace can reach CONFIRMED; an incomplete one (a path you can't fully reach from here) is PLAUSIBLE. This is the basis for most verdicts.
+3. **"Looks wrong"** — no trace, no run. Not a basis for any assertion. If you can neither trace nor run it and can't refute it from the code, it stays PLAUSIBLE with the open question in `needs_confirmation` — never asserted either way.
+
+Record which rung a CONFIRMED rests on when it isn't obvious (e.g. `evidence: "reproduced: …"` vs `evidence: "traced: …"`), so the author knows whether it was executed or read.
+
 ## Output
 
 Return one block per finding, keyed by the fingerprint you were given (`file:line | category | slug`) so the caller can map verdicts back. Preserve the input order.

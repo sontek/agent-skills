@@ -23,7 +23,13 @@ This skill is invoked when the user wants to plan a refactor. Go through the ste
 
    Always write at least one anti-criterion — for refactors, "what must not change" is usually the load-bearing part.
 
-7. Look in the codebase to check for test coverage of this area of the codebase. If there is insufficient test coverage, ask the user what their plans for testing are. A refactor without tests is a guess.
+7. Look in the codebase to check for test coverage of this area. A refactor without tests is a guess — "legacy code is simply code without tests" (Michael Feathers), and that includes code you're about to restructure. If coverage is insufficient, don't just ask the user "what are your testing plans?" — plan to *get the code under test first*, as the opening commits of the refactor:
+
+   - **Characterization tests** pin the current behavior so the refactor can't change it silently. You don't need a spec: write an assertion you expect to fail, run it, let the failure message tell you what the code *actually* does, then change the assertion to match. Repeat per code path you'll touch. These document what the code **does**, not what it **should** do — that's exactly the safety net a behavior-preserving refactor needs.
+   - **Find the seams.** A seam is a place you can alter behavior without editing there — an injectable dependency, an overridable method. If the code can't be instantiated or called under test (constructor creates its own dependencies, a static/global blocks you, a hard-to-build parameter), the early commits break that dependency *minimally* (Parameterize Constructor, Extract Interface, Extract and Override Factory Method) before any restructuring. Break just enough to get a test in.
+   - **Under real time pressure**, prefer sprout/wrap over restructuring untested code: put new behavior in a new, separately-tested method or class (Sprout Method/Class), or wrap the existing call to add behavior before/after without touching its body (Wrap Method/Class). Note these as the chosen tactic in the plan.
+
+   Make "get the target area under characterization tests" the first commit(s) in the plan whenever coverage is thin, and tie an ISC to it (e.g. `ISC-1: Characterization tests cover the public behavior of `auth/` before any structural change`).
 
 8. Break the implementation into a plan of tiny commits. Remember Martin Fowler's advice to "make each refactoring step as small as possible, so that you can always see the program working."
 

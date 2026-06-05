@@ -141,6 +141,30 @@ condition — either it's met or it isn't, no "kind of."
 The Anti-Criteria bucket is the one most plans skip — and most often
 regret. Always include at least one.
 
+### Weigh approaches (before phases, when the design isn't obvious)
+
+Skip this for a single-obvious-approach feature. But when the design space is
+wide — more than one structurally different way to build it — don't anchor on
+the first idea. Sketch 2–3 *structurally different* approaches, compare them in
+a trade-off table, and name a recommendation. A menu without a pick isn't a
+decision.
+
+```markdown
+## Approach
+
+| Approach | Upside | Downside | Best when |
+|---|---|---|---|
+| A: <one line> | ... | ... | ... |
+| B: <one line> | ... | ... | ... |
+
+**Recommendation:** B — <why, including the trade-off it accepts>.
+```
+
+Keep the comparison honest: the recommended approach should lose on at least
+one row. If every cell favors it, you haven't compared — surface the cost it
+actually carries. Record the chosen approach (and why the others lost) in
+**Notes → Decisions Made**, and let the premortem's failure modes reference it.
+
 ### Phase 4: Break work into phases
 
 Each phase should be:
@@ -163,11 +187,18 @@ Before saving the file, write the premortem:
 - <assumption the plan relies on — and how we'd notice if it's wrong>
 
 ### Realistic failure modes
-- <what could go wrong> — <mitigation OR accepted with reason>
+
+| Failure mode | Likelihood | Impact | Mitigation / Accepted |
+|---|---|---|---|
+| <what could go wrong> | low/med/high | low/med/high | <mitigation, or "Accepted because…"> |
 ```
 
-Aim for 2–5 of each. Ask the user whether to mitigate or accept each
-failure mode before committing the plan to disk.
+Aim for 2–5 assumptions and 2–5 failure modes. Rating likelihood and impact
+separately stops every risk from reading as equally urgent — a high-impact /
+low-likelihood failure gets a different treatment than a likely nuisance. If you
+weighed multiple approaches above, note in the row which approach a failure mode
+is specific to (some risks disappear under approach B). Ask the user whether to
+mitigate or accept each failure mode before committing the plan to disk.
 
 ### Phase 6: Write the plan file
 
@@ -288,7 +319,10 @@ Findings, Gotchas. Omit subsections with no substance.]
 - ...
 
 ### Realistic failure modes
-- ... — Mitigation: ... | Accepted because: ...
+
+| Failure mode | Likelihood | Impact | Mitigation / Accepted |
+|---|---|---|---|
+| ... | low/med/high | low/med/high | ... |
 
 ## Notes
 
@@ -401,9 +435,9 @@ The plan is a living document:
   ordering — apply any blocking findings by editing the plan file,
   then begin Phase 1.
 
-**Use with grill-me skill:**
+**Use with clarify skill:**
 
-- For especially fuzzy requirements, run `grill-me` before
+- For especially fuzzy requirements, run `clarify` before
   reconnaissance to nail down the user's intent.
 
 **Use with commit skill:**

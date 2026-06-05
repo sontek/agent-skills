@@ -123,6 +123,17 @@ the layer sections below.
 Anything that touches all layers (audit logging, request context propagation,
 feature flags, multi-tenancy). One bullet each.
 
+### Dependency direction
+
+Only when the codebase actually exhibits layering (a domain/entities core
+separate from adapters/infrastructure): name the rings and which way
+dependencies point — e.g. "domain (`core/`) is pure; adapters in `infra/`
+depend inward on it; nothing in `core/` imports a framework or the ORM." Note
+any inward-pointing violation you observed (framework/ORM import inside the
+domain) as an architectural risk. **Omit this subsection entirely for a flat
+app that doesn't use layered boundaries** — don't impose Clean Architecture
+vocabulary where the code doesn't.
+
 ## Data Layer
 
 What it stores, where, and how things relate. Embed the **ER diagram** here if

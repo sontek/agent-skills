@@ -78,12 +78,13 @@ See [Skills vs agents](#skills-vs-agents) for the decision guide.
 | Skill | Description |
 | --- | --- |
 | [fix-issue](plugins/sontek-skills/skills/fix-issue/SKILL.md) | Implement a fix for a bug/issue from scratch, reproduce-first (failing check → root-cause fix → verify → edge cases → hand off to `commit`/`create-pr`) |
+| [debug](plugins/sontek-skills/skills/debug/SKILL.md) | Diagnose a bug by the scientific method (stabilize → hypothesize → experiment → fix root cause → regression test); pattern-reuse gate, anti-patterns, time limits. Composes with `sentry` and `iterate-pr` |
 
 ### Planning & design
 
 | Skill | Description |
 | --- | --- |
-| [grill-me](plugins/sontek-skills/skills/grill-me/SKILL.md) | Interview the user one question at a time to stress-test a plan |
+| [clarify](plugins/sontek-skills/skills/clarify/SKILL.md) | Interview the user one question at a time to resolve ambiguity or stress-test a plan — classifies the gap (intention/premise/parameter/expression) and asks the highest-information question, with a confirmatory mode for "just do it". Formerly `grill-me` |
 | [plan-implementation](plugins/sontek-skills/skills/plan-implementation/SKILL.md) | Structured plan for NEW features (writes `IMPLEMENTATION_PLAN_*.md`) |
 | [plan-refactor](plugins/sontek-skills/skills/plan-refactor/SKILL.md) | Tiny-commit refactor plan (writes `REFACTOR_PLAN_*.md`) |
 | [review-plan](plugins/sontek-skills/skills/review-plan/SKILL.md) | Route an existing plan (file or plan-mode draft) through `senior-engineer` and `product-manager` for a judgment pass |
@@ -230,7 +231,8 @@ allowed-tools: Read Grep Glob
 
 - [Agent Skills Specification](https://agentskills.io/specification)
 - [getsentry/sentry-skills](https://github.com/getsentry/sentry-skills) — upstream we fork from
-- [mattpocock/agent-skills](https://github.com/mattpocock/agent-skills) — source of `grill-me`, `improve-architecture`, `plan-refactor`
+- [mattpocock/agent-skills](https://github.com/mattpocock/agent-skills) — source of `clarify` (formerly `grill-me`), `improve-architecture`, `plan-refactor`
+- [ryanthedev/code-foundations](https://github.com/ryanthedev/rtd-claude-inn) and [systems-design.skill](https://github.com/ryanthedev/rtd-claude-inn) (Code Complete / APOSD / Clean Architecture / Legacy Code) — techniques folded into `clarify`, `debug`, `code-reviewer`, `finding-verifier`, `improve-architecture`, `plan-refactor`, `plan-implementation`, `review-plan`
 - [mitsuhiko/agent-stuff](https://github.com/mitsuhiko/agent-stuff) — source of `librarian`, `update-changelog`, `sentry`, `uv`, `frontend-design`, and the Mermaid validation tool used by `draw-mermaid-diagram` / `draw-infra-diagram`
 
 ## License

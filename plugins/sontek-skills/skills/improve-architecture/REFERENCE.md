@@ -31,6 +31,38 @@ The core principle: **replace, don't layer.**
 - Tests assert on observable outcomes through the public interface, not internal state
 - Tests should survive internal refactors — they describe behavior, not implementation
 
+## Naming the Friction (APOSD red flags)
+
+The exploration in Step 1 is friction-driven, not checklist-driven — but when you name a candidate, reach for precise vocabulary so the user knows *why* it's worth deepening. Three complexity symptoms tell you how bad it is: **change amplification** (a simple change forces edits in many places), **cognitive load** (you must know too much to work here), and **unknown unknowns** (it's not even obvious what a change would touch — the worst). The structural red flags that produce them:
+
+| Red flag | One-line detection |
+|---|---|
+| **Shallow module** | Interface nearly as complex as the implementation it hides |
+| **Classitis** | Many small classes, each doing little — the friction of bouncing between files |
+| **Information leakage** | The same design knowledge (format, ordering, constant) lives in two modules; they change together |
+| **Temporal decomposition** | Module boundaries mirror execution order (step1/step2/step3), forcing a fixed call sequence |
+| **Pass-through method** | A method that only forwards arguments to another with the same signature |
+| **Conjoined methods** | You can't understand one method without reading another's implementation |
+| **Shallow split** | A split left both halves with interface ≈ implementation, reusable only together |
+
+**Before naming a red flag, steel-man it.** What's the best argument it's intentional? An adapter, facade, or decorator where thinness *is* the point, or an injected seam that exists for testing, is not a defect. When depth and cohesion conflict, prefer cohesion — a focused shallow module beats a bloated deep one. Never call length alone complexity.
+
+## Naming the Solution (GoF patterns — when one genuinely fits)
+
+When a deepened interface maps cleanly onto a named Gang-of-Four pattern, name it — it gives the design a shared vocabulary and a known shape. But a pattern is indirection, and indirection is a cost. Name a pattern only when **all three** hold: the problem is genuinely recurring (not a one-off), the flexibility outweighs the extra classes, and the team can maintain it. If a straightforward solution works, recommend that instead.
+
+| Symptom in the current code | Pattern direction |
+|---|---|
+| `if/else` / `switch` on object **type** (≥3 branches, still growing) | Strategy, Visitor |
+| `if/else` / `switch` on object **state**, transitions scattered | State |
+| Telescoping constructors / positional-arg soup | Builder |
+| Subclass explosion for feature combinations | Decorator, Strategy, Bridge |
+| `new ConcreteClass()` scattered through callers | Factory Method, Abstract Factory |
+| Subsystem complexity leaking into callers | Facade |
+| Manual state propagation to many dependents | Observer |
+
+Always pair the pattern with its **counter-indicator** when you present it ("Strategy *if* a third payment type is actually coming; if these two are the whole domain, the conditional is simpler"). Patterns applied speculatively are pattern-mania — the worst outcome here is a deepened module that's also over-engineered.
+
 ## Issue Template
 
 <issue-template>
