@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Detection-rule regression + cross-language overfit suite
+
+# Two providers are defined; the `just` recipes select ONE at run time via
+# `--filter-providers <label>` (default: bedrock). So `just eval` runs Bedrock,
+# `just eval anthropic` runs the Anthropic API.
+#
+# Bedrock uses the standard AWS credential chain (env / AWS_PROFILE / SSO / role)
+# — no ANTHROPIC_API_KEY needed. Override the model/region without editing this
+# file:  EVAL_BEDROCK_MODEL=...  AWS_REGION=...
+providers:
+  - id: "bedrock:{{ env.EVAL_BEDROCK_MODEL or 'us.anthropic.claude-opus-4-1-20250805-v1:0' }}"
+    label: bedrock
+    config:
+      region: "{{ env.AWS_REGION or 'us-east-1' }}"
+      temperature: 0
+      max_tokens: 1024
+  - id: anthropic:messages:claude-opus-4-8
+    label: anthropic
+    config:
+      temperature: 0
+      max_tokens: 1024
+
+# prompt.js builds the chat messages in plain JS (no Nunjucks), so fixtures that
+# contain `${{ ... }}` (GitHub Actions) or `{{ }}` pass through verbatim.
+prompts:
+  - file://prompt.js
+
+# Tests are generated from the fixture tree; the `current` rule wording is sliced
+# live from the agent files (see tests.gen.js + rules/sources.json).
+# RULE_VARIANT=old runs the frozen pre-generalization wording instead.
+tests: file://tests.gen.js
+
+defaultTest:
+  options:
+    # Only consulted by llm-rubric asserts (none used by default). Keep it cheap.
+    provider: "bedrock:{{ env.EVAL_BEDROCK_GRADER or 'us.anthropic.claude-haiku-4-5-20251001-v1:0' }}"

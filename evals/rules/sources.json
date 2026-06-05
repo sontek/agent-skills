@@ -1,0 +1,34 @@
+{
+  "_comment": "Binds each eval rule to the LIVE agent file it tests. The generator slices the text between `start` (inclusive) and `end` (exclusive) at generate time, so the `current` variant always tests what ships — no copy to drift. Paths are relative to evals/. If change (B) rewords a rule, keep its `start`/`end` anchor lines stable (the bold title / heading) so this keeps resolving.",
+
+  "log_assertion": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **No log-output assertions.**",
+    "end": "- **Parameterize repetitive tests.**"
+  },
+  "type_dispatch": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Incomplete type-dispatch / coercion.**",
+    "end": "### Performance"
+  },
+  "path_traversal": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Fragile path traversal.**",
+    "end": "- **Incomplete type-dispatch / coercion.**"
+  },
+  "cleanup_nonlocal_exit": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Paired acquire/release where a non-local exit skips the cleanup.**",
+    "end": "- **Side effect dispatched around a transaction boundary (dual-write).**"
+  },
+  "blocking_io_async": {
+    "file": "../plugins/sontek-skills/agents/perf-reviewer.md",
+    "start": "## Priority 1: Blocking I/O on an async hot path",
+    "end": "## Priority 2: Algorithmic blow-up"
+  },
+  "gha_with_injection": {
+    "file": "../plugins/sontek-skills/agents/gha-security-reviewer.md",
+    "start": "### Check 2: Expression injection",
+    "end": "## Step 3: Validate before reporting"
+  }
+}
