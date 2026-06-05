@@ -37,7 +37,15 @@ function sliceLive(rule) {
     throw new Error(`start anchor not found for "${rule}" in ${src.file}: ${src.start}`);
   }
   let endIdx = lines.findIndex((l, i) => i > startIdx && l.includes(src.end));
-  if (endIdx === -1) endIdx = lines.length;
+  if (endIdx === -1) {
+    // A declared end anchor that no longer resolves means the rule was reworded
+    // and the slice would silently run to EOF, swallowing every later rule.
+    // Fail loudly instead so anchor drift is caught, not shipped.
+    if (src.end) {
+      throw new Error(`end anchor not found for "${rule}" in ${src.file} (anchor drift?): ${src.end}`);
+    }
+    endIdx = lines.length;
+  }
   return lines.slice(startIdx, endIdx).join("\n").trim();
 }
 

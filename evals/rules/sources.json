@@ -1,5 +1,5 @@
 {
-  "_comment": "Binds each eval rule to the LIVE agent file it tests. The generator slices the text between `start` (inclusive) and `end` (exclusive) at generate time, so the `current` variant always tests what ships — no copy to drift. Paths are relative to evals/. If change (B) rewords a rule, keep its `start`/`end` anchor lines stable (the bold title / heading) so this keeps resolving.",
+  "_comment": "Binds each eval rule to the LIVE agent file it tests. The generator slices the text between `start` (inclusive) and `end` (exclusive) at generate time, so the `current` variant always tests what ships — no copy to drift. Paths are relative to evals/. Keep both anchor lines stable when rewording a rule; prefer a bold-bullet/`###` line as `end`. If an `end` anchor stops resolving, the generator THROWS (it does not silently slice to EOF), so anchor drift fails loudly in `node tests.gen.js` / CI rather than shipping a giant slice.",
 
   "log_assertion": {
     "file": "../plugins/sontek-skills/agents/code-reviewer.md",
