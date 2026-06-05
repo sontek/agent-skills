@@ -29,6 +29,7 @@ Both modes are **propose-only**: never edit code, never post or push without exp
 - Inline review comments + threads: `gh api repos/{owner}/{repo}/pulls/<n>/comments` (path, line, body, resolution where available).
 - Top-level discussion: `gh pr view <n> --comments`.
 - Recent commits on the branch (`git log --oneline <base>...HEAD`) — a later commit may have already addressed an earlier comment (e.g. a refactor that moved the flagged code). Skim the diffs of commits that look like they respond to feedback.
+- Pending automated reviewers. `gh pr checks <n>` (or `gh pr view <n> --json statusCheckRollup`) for Greptile / CodeRabbit / Cursor Bugbot / Copilot. If one is still `IN_PROGRESS`, your pass is **preliminary** — say so in the final output and offer to reconcile once it posts; don't present a clean verdict while a bot review is mid-run, since it may surface exactly what you cleared. If a bot has already commented, read those comments as input — but treat each as *one hypothesis to verify* (it flows through `finding-verifier` like any finding), not as independent corroboration that inflates confidence (see the coalesce dedup rule).
 
 Keep this discussion as grounding for the coalesce step. For a local branch with no PR, there's no discussion to read — skip.
 

@@ -175,6 +175,25 @@ Split into separate files when:
 - Content has distinct domains (e.g., separate auth/injection/xss references)
 - Advanced features are rarely needed (progressive disclosure)
 
+## Writing detection rules without over-fitting
+
+Applies only to skills and agents that encode **detection rules** — "flag X when you see Y" heuristics: review rubrics (`review-*`, the reviewer agents), lint-like checks, security/perf audits, the entries in `references/patterns.md`. Workflow skills (`commit`, `create-pr`) have no detection rules — skip this section for them.
+
+A detection rule **over-fits** when its trigger is bound to the *surface form* of one instance of a bug instead of the *invariant* the bug violates. The tell: the rule leads with specific tokens, a fixed `rg`/`ast-grep` command, or named APIs (`asyncio.Event`, `.set()`, `transaction.on_commit`) and treats that lexical match as the gate. It then fires on the exact case you pictured and **silently misses every structurally identical bug** written with different names — and a reviewer trusts the category is covered when only one corner is.
+
+Write each detection rule **invariant-first**:
+
+1. **Lead with the invariant** — the property that's violated, stated independently of any API or token. ("A paired acquire/release must run its cleanup on every path that leaves the scope after the acquire.")
+2. **Give the reasoning discipline** — how to *find* it without a grep: what to enumerate, what to trace, what to compare across siblings. When the bug has no reliable lexical signature, say so explicitly and name the trace instead ("the pair is two arbitrary names — trace the pairing, don't grep for it").
+3. **Demote the specifics to a worked instance** — keep the concrete example, the token list, and the `rg`/`ast-grep` command, but label them as *one instance* and *a hint for the common shape, not the gate*. Examples and validation gates are assets; reframe them, don't delete them.
+4. **Keep the validation gate** — the "before flagging, confirm…" clause that prevents false positives must survive the generalization.
+
+**Self-check — try to evade your own rule.** Before shipping a detection rule, write 2-3 short snippets that violate the invariant but do NOT match your trigger (different API, different control flow, different language idiom). If your rule would miss them, it's over-fit — generalize until it catches them. If every snippet that violates the invariant necessarily trips the rule, the rule is correctly specific; ship it. Those snippets are the evidence, not a vibe.
+
+**Don't over-generalize.** Some specificity is correct: a rule keyed on `mark_safe(user_input)`, `yaml.load`, or `dangerouslySetInnerHTML` is fine because the token *is* the bug — the class isn't broader. Only generalize when your evasion snippets prove the invariant is wider than the trigger. And generalize to a *concrete discipline* ("enumerate every paired acquire/release; trace each exit path after the acquire"), never to vague advice ("think about whether cleanup happens") — this repo's rules are mechanical procedures, not gestures.
+
+Gold standard already in-repo: `agents/code-reviewer.md` step 2c ("no reliable lexical signature… trace data flow instead") and step 3b (the inversion protocol, built because hardcoded queries "catch only the idioms the rubric authors thought to enumerate").
+
 ## Agent frontmatter (if shipping as an agent)
 
 ```md
@@ -218,3 +237,4 @@ Before handing off:
 - [ ] Intra-skill references point to skills that actually exist
 - [ ] Frontmatter is valid YAML
 - [ ] Skill vs agent decision is documented (in the description or a comment)
+- [ ] If the skill encodes detection rules: each rule leads with the invariant (not a token/grep), specifics are demoted to a labelled hint, and you wrote evasion snippets the rule actually catches (see "Writing detection rules without over-fitting")

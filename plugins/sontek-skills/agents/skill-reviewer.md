@@ -52,6 +52,19 @@ Most skill drift comes from descriptions failing to cover their actual scope aft
 - No time-sensitive info (dates, current versions of dependencies).
 - Consistent terminology throughout.
 
+### Detection-rule generalization (review / heuristic skills only)
+
+Applies only when the skill or agent encodes **detection rules** — "flag X when Y" heuristics (the `review-*` skills, the reviewer agents, `references/patterns.md`). Skip entirely for workflow skills (`commit`, `create-pr`) — they have no detection rules to over-fit.
+
+A rule **over-fits** when its trigger is bound to the surface form of one instance instead of the invariant the bug violates: it leads with specific tokens, a fixed `rg`/`ast-grep` command, or named APIs and treats that match as the gate, so it catches the author's example and misses structurally identical bugs.
+
+For each detection rule in scope, run the **evasion test**: construct 2-3 code snippets that violate the same underlying invariant but dodge the rule's tokens / grep / named APIs / shape.
+
+- If you can write snippets the rule would miss → **real gap (over-fit)**. Recommended fix: reframe invariant-first — lead with the invariant, add the reasoning discipline (what to trace, not grep), demote the current specifics to a labelled hint ("not the gate"), keep the validation gate. Cite the evasion snippets as the evidence.
+- If every snippet that violates the invariant trips the rule → correctly specific, don't flag.
+
+The evasion snippets are mandatory evidence: do **not** flag a rule as over-fit merely because it *contains* an `rg` command — many sound rules carry a grep as a labelled hint. Calibrate against the in-repo gold standard (`code-reviewer.md` step 2c "no reliable lexical signature… trace data flow instead"; step 3b's inversion protocol).
+
 ### References resolve
 
 - Every `references/*.md` link in SKILL.md resolves to an existing file.
@@ -105,6 +118,7 @@ If reviewing multiple skills, emit a one-line summary table at the top, then per
 - Trigger phrasings the model handles via synonyms naturally — only flag missing triggers when the gap would actually degrade auto-loading.
 - Pre-existing issues outside the changed scope, unless asked for a full audit.
 - An agent's intentional omission of `tools` (full-toolset default for editing agents).
+- A detection rule whose token *is* the bug (`mark_safe`, `yaml.load`, `dangerouslySetInnerHTML`) — correctly specific, not over-fit. Only flag over-fitting when your evasion snippets prove the invariant is broader than the trigger.
 
 ## Output discipline
 

@@ -1,6 +1,6 @@
 ---
 name: review-skill
-description: Audit existing skills (SKILL.md files) against the write-skill authoring rubric — frontmatter validity, description trigger coverage, structural size, reference resolution, intra-skill cross-references. Use when reviewing a newly written skill, checking skill quality before merge, evaluating refactored or consolidated skills, or running a compliance pass over the skill plugin. Outputs findings classified as real gaps, observations, or pre-existing issues, each with a concrete recommended fix.
+description: Audit existing skills (SKILL.md files) against the write-skill authoring rubric — frontmatter validity, description trigger coverage, structural size, detection-rule over-fit, reference resolution, intra-skill cross-references. Use when reviewing a newly written skill, checking skill quality before merge, evaluating refactored or consolidated skills, or running a compliance pass over the skill plugin. Outputs findings classified as real gaps, observations, or pre-existing issues, each with a concrete recommended fix.
 ---
 
 # Review Skill
@@ -62,7 +62,8 @@ Caller notes:
   to be ~60-90 lines, not the prior ~250.
 
 Follow your rubric: frontmatter, trigger discrimination (most important),
-structure, references resolve, skill-vs-agent typing. Classify findings as
+structure, detection-rule generalization (over-fit check, for review/heuristic
+skills), references resolve, skill-vs-agent typing. Classify findings as
 real gap / observation / pre-existing.
 ```
 
