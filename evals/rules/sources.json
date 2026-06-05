@@ -11,6 +11,21 @@
     "start": "- **Incomplete type-dispatch / coercion.**",
     "end": "### Performance"
   },
+  "stale_latest_state": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Stale shared \"latest/current\" state",
+    "end": "- **Nullable/optional input collapsing into a consequential default.**"
+  },
+  "deadline_before_handoff": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Deadline/timeout computed before an unaccounted handoff delay.**",
+    "end": "- Backwards compatibility — breaking API changes without migration path"
+  },
+  "first_record_schema": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Schema or column-set derived from the first element of a heterogeneous collection.**",
+    "end": "- Refactors that look like no-ops but change invariants:"
+  },
   "path_traversal": {
     "file": "../plugins/sontek-skills/agents/code-reviewer.md",
     "start": "- **Fragile path traversal.**",
