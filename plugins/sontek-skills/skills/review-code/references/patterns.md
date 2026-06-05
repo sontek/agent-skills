@@ -220,6 +220,35 @@ Two force-multipliers once you've found a guarded pair:
 
 **Validation gate:** confirm an exit can actually land in the gap — the call/`await` must be able to raise or suspend, and the path must be reachable (a cancellable task, a contended lock, a call that can throw). A pair with nothing exitable between the two halves is fine. Fix: move the guard up so it spans every exit point after the acquire.
 
+## Stale shared latest-state written by some paths, read by all
+
+A store holds the "latest / current" result and a consumer reads it expecting the most recent value (a `get_latest_*`, a last-result cache, the backing state of a "repeat / reformat that" feature). The bug: the store is written by only *some* of the paths that produce a result the consumer should reflect. A path that renders a result but skips the write leaves the reader serving a *stale prior* value. Invisible in a single-step test; only a follow-up that reads the store exposes it.
+
+**Anchor on the reader, trace back to every producer.** No reliable lexical signature — writer and reader are two arbitrary names. The tell is sibling divergence: one producer path missing the write its siblings do.
+
+```python
+# Bad — record_snapshot runs only when rows are non-empty. An empty-result turn
+# returns without writing, so a later "reformat that" reads the PRIOR turn's rows.
+def run_query(sql):
+    columns, rows = execute(sql)
+    if columns and rows:                 # empty / error / manual paths skip the write
+        record_snapshot(columns, rows)
+    return render_table(columns, rows)
+
+def reformat_last(plan):
+    snap = get_latest_snapshot()         # reader expects the latest turn
+    return apply(plan, snap.rows)        # stale rows from an earlier query
+
+# Good — every producing path writes, including the empty case (sentinel snapshot),
+# OR the reader derives from the operation's own result instead of a latest-pointer.
+def run_query(sql):
+    columns, rows = execute(sql)
+    record_snapshot(columns, rows)       # writes even when rows == []
+    return render_table(columns, rows)
+```
+
+The shape is language-agnostic — a `lastResult` cache an auto-run writes but a manual-run doesn't (JS), a `s.latest` a success path sets but an error early-return skips (Go). **Validation gate:** the reader must genuinely want the latest (not a full read of an append-only log), and the skipping path must produce something the reader should reflect. A path that legitimately yields nothing the consumer tracks is fine.
+
 ## Nullable input collapsing into a consequential default
 
 A state/return/branch decision derived from a value that can be null or absent, where the null-guard is folded into the test so that "missing" and "present-but-test-false" produce the **same** branch — and that branch is the consequential one (a terminal/destructive/hiding state, an access decision, a silent skip). The short-circuit quietly equates *unknown* with *no*.
