@@ -275,7 +275,7 @@ If the answer to any is "no" — downgrade or drop the finding.
 
 ## What NOT to report
 
-- Throwaway fixtures and one-off test setup over small fixed data — but a test or **eval harness is in scope** when it processes real-scale data or runs recurrently in CI: a per-item round-trip in an eval loop over a large case set, an unbounded fetch in a benchmark, an eval slow enough to time out the suite. Equal priority — a broken or slow eval gates every release.
+- Throwaway fixtures and one-off test setup over small fixed data — but a **test (unit, integration, or eval) is in scope** when it processes real-scale data or runs recurrently in CI: a per-item round-trip in an eval loop over a large case set, an unbounded fetch in a benchmark, an eval slow enough to time out the suite. Equal priority — a broken or slow eval gates every release.
 - Genuinely one-off scripts and one-time migrations (a *recurring* scheduled job — Celery beat, cron, periodic task — is in scope, not exempt)
 - Admin / internal-only views with no scale concern
 - Code behind disabled feature flags

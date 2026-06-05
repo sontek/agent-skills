@@ -312,15 +312,17 @@ Counter-indicator (do **not** flag): a one-off two-branch conditional, a dispatc
 
 ### Testing
 
-**Test and eval code is first-class — review it for bugs, not just for whether production is covered.** A test or eval *harness* is real code with real logic (orchestration, output parsing, cost accounting, assertions), and a bug in it is **quality-critical**: it gives false confidence in everything it gates. Apply full correctness / error-handling / concurrency rigor to code under `tests/` and `evals/`, and weight especially the failure modes that make a test or eval **lie**:
+**Tests are first-class code at equal priority to the production they cover — unit, integration, and eval alike.** A test is a safety net, and a *wrong, weak, or broken* test gives false confidence exactly like a bug in production: it ships a regression green. Review test code for two things with full rigor — (1) **correctness of the test code itself** (its setup, helpers, fixtures, orchestration, parsing, error-handling and concurrency are real logic that can have real bugs), and (2) **whether the test actually validates what it claims**. Weight especially the ways a test can **lie**:
 
-- a test that **can't fail** — exercises the path but never asserts the new behavior (see "A test must pin the behavior" below);
-- a **false pass** — a matcher so loose it accepts non-compliant output, or an eval that asserts *something ran* rather than the graded dimension it claims to measure;
-- a **crashed or aborted suite that loses results** — one bad case raising out of an `asyncio.gather` / `Promise.all` with no per-item isolation, so every other case's result is discarded instead of recorded as a failure;
-- **fabricated or mis-measured metrics** — a cost/token number estimated from a character count instead of real usage, so the eval's headline figure is off by orders of magnitude;
-- a **swallowed error that mislabels the outcome** — `except Exception: return False` attributing a tooling/environment fault to a model-quality failure, poisoning the very categories the harness exists to produce.
+- **can't fail** — exercises the path but never asserts the new behavior, asserts a tautology, or the assertion is unreachable (an early `return`, a mocked-away call), so deleting the production change still leaves it green (see "A test must pin the behavior" below);
+- **asserts the wrong thing** — a matcher too loose to reject a bad value (`is not None` where the value matters; an eval that checks *something ran* rather than the graded dimension), or asserting on a mock's own return instead of observable behavior;
+- **over-mocks the system under test** — so much is stubbed that the test passes regardless of whether the real code is correct;
+- **leaks state / is order-dependent / flaky** — shared global or fixture state not reset, or time/ordering/network nondeterminism, so a pass is luck and a regression can hide;
+- **crashes or aborts a batch and loses results** — one case raising out of an `asyncio.gather` / `Promise.all` with no per-item isolation, so the rest are discarded instead of recorded as failures;
+- **fabricates or mis-measures a reported metric** — a cost/token figure estimated from a character count instead of real usage; a perf assertion against a constant or wrong baseline;
+- **swallows an error and mislabels the outcome** — `except: return False` (or a bare `try` in a test) attributing a tooling/environment fault to a real failure, poisoning the categories the suite produces.
 
-Do **not** deprioritize any of these because the file lives under `tests/` or `evals/` — a broken eval gates every release.
+Do **not** deprioritize any of these because the file lives under `tests/` — a unit, integration, or eval test that lies is a quality-critical defect.
 
 - Business logic covered by functional tests
 - Component interactions covered by integration tests
