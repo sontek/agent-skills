@@ -312,6 +312,16 @@ Counter-indicator (do **not** flag): a one-off two-branch conditional, a dispatc
 
 ### Testing
 
+**Test and eval code is first-class — review it for bugs, not just for whether production is covered.** A test or eval *harness* is real code with real logic (orchestration, output parsing, cost accounting, assertions), and a bug in it is **quality-critical**: it gives false confidence in everything it gates. Apply full correctness / error-handling / concurrency rigor to code under `tests/` and `evals/`, and weight especially the failure modes that make a test or eval **lie**:
+
+- a test that **can't fail** — exercises the path but never asserts the new behavior (see "A test must pin the behavior" below);
+- a **false pass** — a matcher so loose it accepts non-compliant output, or an eval that asserts *something ran* rather than the graded dimension it claims to measure;
+- a **crashed or aborted suite that loses results** — one bad case raising out of an `asyncio.gather` / `Promise.all` with no per-item isolation, so every other case's result is discarded instead of recorded as a failure;
+- **fabricated or mis-measured metrics** — a cost/token number estimated from a character count instead of real usage, so the eval's headline figure is off by orders of magnitude;
+- a **swallowed error that mislabels the outcome** — `except Exception: return False` attributing a tooling/environment fault to a model-quality failure, poisoning the very categories the harness exists to produce.
+
+Do **not** deprioritize any of these because the file lives under `tests/` or `evals/` — a broken eval gates every release.
+
 - Business logic covered by functional tests
 - Component interactions covered by integration tests
 - Critical user paths covered by end-to-end tests
