@@ -347,7 +347,7 @@ If the answer to any is "no" — remove the finding.
 
 ## What NOT to report
 
-- Test files
+- Throwaway fixtures over small fixed data — but a **test (unit, integration, or eval) that touches the ORM at real scale or runs recurrently in CI is in scope**: an N+1 in a per-case eval loop, an unbounded queryset materialized in a benchmark. Equal priority, since a slow or broken eval gates every release.
 - Admin-only views
 - Migration files
 - Genuinely one-time backfills / data-migration scripts (run once, then deleted). A *recurring* scheduled job (Celery beat, cron, periodic management command) is NOT exempt — see Priority 4.

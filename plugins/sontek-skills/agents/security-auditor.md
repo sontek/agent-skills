@@ -91,7 +91,7 @@ If you can't construct all five, the finding is not HIGH confidence — mark it 
 
 ### General rules
 
-- Test files (unless explicitly reviewing test security)
+- Genuinely inert test **fixtures** — mock data, an obviously-fake secret literal, a static assertion value. But **test code is in scope** at full priority — unit, integration, and eval: an eval or integration test that executes or validates untrusted model/PR output, test/CI infra an attacker can reach, a *real* credential committed in a test, or any test-support code that handles untrusted input are real findings. A security hole in the harness that gates your releases is not lower-priority for living under `tests/`.
 - Dead code, commented code, documentation strings
 - Theoretical issues with no realistic attack path
 - Patterns using **constants** or **server-controlled configuration**
