@@ -70,6 +70,8 @@ If you can't construct all five, the finding is not HIGH confidence — mark it 
 
 6. **Confidence-gate everything.** Report HIGH-confidence findings with full PoC. Mark MEDIUM as "needs verification." Drop LOW. Don't inflate severity to appear thorough.
 
+7. **Clear hazards with the same rigor you flag them.** When you put an availability, hang, deadlock, or resource-exhaustion concern in "Reviewed and cleared" — especially one you were explicitly asked to assess — re-anchor the premise against the actual control flow and quote the line, don't reconstruct the structure from memory. A clearance like "the event is created and the `finally` is registered within the same synchronous prologue before any failure point" is a structural claim: confirm no `await` sits between the resource's registration and the `try:` (code-reviewer step 2f) before asserting it. A confident clearance on a false premise ships the bug *and* tells the next reviewer not to look — worse than saying nothing.
+
 ## Threat areas you always check
 
 - **Injection** — SQL, NoSQL, command, template, LDAP, header
@@ -83,6 +85,7 @@ If you can't construct all five, the finding is not HIGH confidence — mark it 
 - **Dependencies** — supply chain risk, known-CVE versions, transitive exposure
 - **Configuration** — CORS, CSP, secrets in code/logs, debug mode in prod
 - **Business logic** — race conditions, workflow bypass, state machine violations
+- **Availability / DoS via a leaked resource** — a paired acquire/release (lock, registered event, refcount, open handle) whose cleanup a non-local exit can skip: an exception, an early return, or — subtlest — a `CancelledError` at an `await` *before* the guard region. The lock stays held, the event stays unset, and every later consumer waiting on it hangs — a self-inflicted denial of service from a stuck/leaked resource, not a crash. The trigger (a disconnect, timeout, or shutdown landing in that window) is low-probability but reachable in normal operation. See the `code-reviewer` agent's investigation step 2f and `plugins/sontek-skills/skills/review-code/references/patterns.md` ("Cleanup skipped by a non-local exit between acquire and release").
 
 ## What you don't flag
 

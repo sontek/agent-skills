@@ -152,6 +152,74 @@ with transaction.atomic():
 
 Anchor on the **write** (`save`/`update`/`upsert`/`delete`, a cache bust, a dispatch, or a branch gating one) and trace back: does it depend on a value read earlier in the scope, before a mutating op, and is that read under the same lock? **Validation gate:** flag only if another path can change that value concurrently *and* the read and the act aren't already under one transaction / row lock. Be honest about severity — when the worst case is a briefly-stale cache that self-heals on the next sync, it's a low-priority nudge, not a blocker.
 
+## Cleanup skipped by a non-local exit between acquire and release
+
+**The invariant:** a paired operation — acquire/release, lock/unlock, register/unregister, event create/`set`, `open`/`close`, refcount increment/decrement, transaction begin/commit-or-rollback — must run its cleanup (the second half) on *every* path that leaves the scope once the first half has run. The bug is any **non-local exit** after the acquire that bypasses the cleanup: an exception/`raise`, an early `return`/`break`/`continue`, a `CancelledError` at an `await`, a panic, a context cancellation. The usual fix — a scope guard (`finally`, `with`/context manager, `defer`, RAII, `ensure`) — only covers the region it *encloses*, so the classic defect is **the acquire sitting before the guard region**, leaving a window where the resource is held but the cleanup won't fire.
+
+**No reliable lexical signature.** The pair is two arbitrary names, so a grep for `finally`/`.set()`/`.release()` is a hint for the common Python shape, not the gate (same stance as the check-then-act variant above). Trace the pairing: in each touched function, find where it acquires/registers something and confirm the matching release is reachable on every exit after that point.
+
+The subtlest instance — async cancellation, because the `await` reads as innocuous and tests never cancel mid-await:
+
+```python
+# Bad — the event is registered, but an await sits BEFORE the try.
+# A CancelledError at `await event.wait()` (client disconnect / timeout /
+# shutdown) unwinds before the finally is armed; the step's event stays in
+# the dict, unset, forever — every later reader waiting on it hangs.
+if step_id and step_id not in self._committed:
+    self._committed[step_id] = asyncio.Event()      # acquire
+if event := self._committed.get(parent_id):
+    await event.wait()                               # exit point — OUTSIDE the guard
+try:
+    await self._call("create_step", ...)
+finally:
+    if e := self._committed.pop(step_id, None):
+        e.set()                                      # cleanup — only if try was entered
+
+# Good — try moves up so every await sits inside it; the finally now covers
+# cancellation at every wait point (a cancelled writer releases its waiters,
+# who proceed against an uncommitted row — fine when every reader upserts).
+if step_id and step_id not in self._committed:
+    self._committed[step_id] = asyncio.Event()
+try:
+    if event := self._committed.get(parent_id):
+        await event.wait()
+    await self._call("create_step", ...)
+finally:
+    if e := self._committed.pop(step_id, None):
+        e.set()
+```
+
+Same shape with no `await` in sight — a lock acquired before the guard, an exception in the gap:
+
+```python
+# Bad — acquire, then a call that can raise, then the try. An exception from
+# prepare() leaves the lock held forever; the next acquirer deadlocks.
+lock.acquire()
+self.prepare(payload)        # raises → lock never released
+try:
+    self.write(payload)
+finally:
+    lock.release()
+
+# Good — acquire immediately before the guard, nothing exitable in the gap
+# (or use `with lock:` so the guard spans the whole critical section).
+lock.acquire()
+try:
+    self.prepare(payload)
+    self.write(payload)
+finally:
+    lock.release()
+```
+
+`defer mu.Unlock()` placed *after* an early `return`, or a hand-rolled cleanup at the end of a function with early `return`s above it, is the identical bug in Go / other stacks — the cleanup is lexically present but an exit path reaches the end-of-scope without arming or running it.
+
+Two force-multipliers once you've found a guarded pair:
+
+- **Sibling divergence.** The same pair usually appears more than once in the file; diff the methods against each other rather than auditing each alone. The safe one acquires-then-guards with nothing exitable in the gap; the buggy one has a call/`await` *between* the acquire and the guard. That single structural asymmetry is the tell (e.g. `update_thread` registers then immediately `try:`; `create_step` awaits a parent event first — same pattern, one structural difference).
+- **New-consumer corollary.** When a small diff adds a new *consumer* of an existing pair (a fresh `await event.wait()`, a new caller relying on a lock being released), the defect may live in the unchanged *producer* whose cleanup the new consumer now depends on. Audit that producer even though it's outside the diff — the diff is what makes the failure reachable, a legitimate reason to fold the producer fix into the same PR. A clean few-line diff copied from a sibling is exactly where this hides: the bug isn't in the added lines, it's in the contract they newly rely on.
+
+**Validation gate:** confirm an exit can actually land in the gap — the call/`await` must be able to raise or suspend, and the path must be reachable (a cancellable task, a contended lock, a call that can throw). A pair with nothing exitable between the two halves is fine. Fix: move the guard up so it spans every exit point after the acquire.
+
 ## Nullable input collapsing into a consequential default
 
 A state/return/branch decision derived from a value that can be null or absent, where the null-guard is folded into the test so that "missing" and "present-but-test-false" produce the **same** branch — and that branch is the consequential one (a terminal/destructive/hiding state, an access decision, a silent skip). The short-circuit quietly equates *unknown* with *no*.
