@@ -6,7 +6,10 @@ The general "reads human, not robot" rules below (no em-dashes, weight-in-prose 
 
 ## Tone rules
 
-- **Concise.** One point per comment. No preamble, no "I noticed that…", no restating what the code already says.
+- **The comment is the conclusion, not the proof.** It carries the point, the minimum mechanism to act on it, and the fix — nothing more. The work you did to *believe* the finding (claim verification, sibling audits, the full step-by-step causal chain, "this is the only file without the floor") is your post/drop case to the user in chat, not comment text. If a sentence exists to convince the author the bug is real rather than to help them fix it, cut it. This is the single biggest source of bloat: a thorough coalesce (SKILL.md step 4) hands you a rich justification, and the reflex is to ship it. Don't — keep the conclusion, leave the proof in chat beside it.
+- **~3–5 sentences.** Longer usually means you're explaining your reasoning instead of making a point. The exception is a finding whose consequence is genuinely subtle (see the fail-open example below); even then, every added sentence should change what the author *does*, not just shore up your case.
+- **Describe the code that's there now.** Anchor the prose to the current variables and lines — the ones you re-resolved in step 4 — not to the fix. When a finding bundles its own patch, the reflex is to open on the patch's new name ("`gradable` only checks…") as if it already exists; that's a factual slip the author will trip on. Name fix-only symbols (a new variable, a renamed function) only inside the `suggestion` block.
+- **Concise.** One point per comment. No preamble, no "I noticed that…", no restating what the code already says. Don't restate the same conclusion two or three ways for emphasis ("the worst place for a false green… passes having validated nothing… grades nothing") — say it once.
 - **Lead with the bottom line.** First sentence states the problem — or, in chat triage, your post/drop verdict. Then support it. Don't walk the reader through mechanism (three caches, how each is keyed, a hypothetical) before they learn what you want them to do.
 - **Don't narrate the author's intent.** They wrote the PR; they know what it's for. Openers like "The whole point of this PR is…", "What you're doing here is…", "This PR aims to…" lecture the author about their own work and read robotic. Lead with what's missing or wrong. If the intent matters to the point, fold it into a clause ("the injection path these abstractions exist for has no test") instead of opening on a thesis statement.
 - **Specific.** Point at the exact line and the exact consequence. "This throws if `order` is None" beats "potential null safety issue."
@@ -72,7 +75,7 @@ Comment:
 Agent finding:
 > **[P2] Design** — Auth moved from a global `before_request` hook to per-route decorators. The default is now fail-open: any future route registered without an auth decorator ships publicly. Current routes are all covered, so no present exposure — this is about future-route discipline.
 
-Comment:
+Comment (this is the **upper bound** on length, earned only because the consequence is subtle — a default that's fine today and bites the next person. Most comments are half this. Don't treat it as the template):
 > moving auth into per-route decorators changes the default for new routes. The old `before_request` authenticated everything except health and OPTIONS, so a route was protected unless you explicitly exempted it; now a route is open unless it has a decorator. Everything here is covered, so nothing's wrong today — but the next person adding an endpoint has to remember the decorator or it ships without auth. Worth a guard in `before_request` that refuses to serve any view not marked auth-bearing, so a missing decorator fails loudly instead of serving traffic? Happy to leave it if the decorator convention is enough.
 
 ---

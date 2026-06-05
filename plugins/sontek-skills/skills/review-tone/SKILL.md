@@ -33,6 +33,8 @@ cat draft.txt | python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-tone/scripts/strip_e
 
 These words and openers inflate without adding meaning. If you're reaching for one, the sentence isn't done: *revolutionary, supercharge, unleash, delight, magic/magical, elevate, seamless, robust, leverage, just, simply, easy/easily, game-changing, next-level, empower, cutting-edge, "we're excited to", "I hope this email finds you well", "I noticed that", "per my previous email", "it's worth noting that".* Don't write "AI-powered" — name what the thing actually does.
 
+Also cut **redundant restatement**: saying the same conclusion two or three ways for emphasis ("the worst place for a false green… passes having validated nothing… grades nothing"). State it once, in its sharpest form. Repetition reads as padding, not weight.
+
 ### 3. Signal weight in prose, not labels
 
 Drop tag/label prefixes (`blocking —`, `suggestion —`, `nit —`, `P1`, `Sec-High`) and `Recommendation:` headers. Convey importance the way a person does, in the sentence itself: a must-fix reads as must-fix because the consequence is concrete ("this throws when `order` is None") and you say "before merge" in plain words; a minor point opens with "small one:"; a question just asks. The severity is self-evident from the consequence; you don't need to stamp it.
@@ -43,7 +45,7 @@ Cut phrases that narrate the act of writing instead of saying the thing: "worth 
 
 ### 5. Plain words over jargon
 
-Describe what the thing does in concrete terms instead of reaching for shorthand. "A new route is public unless someone adds the decorator" beats "the default is now fail-open." Only use a term of art if the reader would plainly recognize it, and even then say the plain version first.
+Describe what the thing does in concrete terms instead of reaching for shorthand. "A new route is public unless someone adds the decorator" beats "the default is now fail-open." Only use a term of art if the reader would plainly recognize it, and even then say the plain version first. The CI-color metaphor is a common offender — "the suite passes green" says no more than "the suite passes" ("green" is redundant), and "green/red" can read as jargon; prefer plain "passes" / "fails".
 
 ### 6. Lead with the bottom line, stay concise
 
