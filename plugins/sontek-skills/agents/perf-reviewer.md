@@ -55,6 +55,8 @@ When in doubt, ask: would this issue exist if the storage layer were swapped to 
 
 **Impact:** A single blocking call inside an `async def` handler stalls the event loop for every concurrent request, not just the one making the call.
 
+**Language-agnostic invariant.** This is a property of *any* single-threaded event-loop runtime, not a Python rule: Python `asyncio` (FastAPI/Starlette), Node.js (a synchronous `*Sync` call, `execSync`, or a blocking driver inside an `async` route handler), Rust async, etc. The Python example below is one instance — a `fs.readFileSync` in a Node `async` handler is the same defect with the same fix. Flag the shape in whatever language the diff is written in; don't scope this to Python.
+
 ```python
 # PROBLEM: requests.get is synchronous; blocks the FastAPI event loop
 @app.get("/users/{uid}")
@@ -72,7 +74,7 @@ data = await asyncio.to_thread(legacy_sync_call, uid)
 
 Validate by:
 
-- Confirming the call site is inside `async def`, not a sync handler.
+- Confirming the call site is inside an async / event-loop handler (Python `async def`, a Node `async` route handler), not a sync handler.
 - Confirming the library is actually blocking (not e.g. `httpx` used in sync mode, which is fine in a sync handler).
 - Confirming the path is request-facing, not a startup hook.
 
