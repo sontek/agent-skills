@@ -176,6 +176,14 @@ Reviews need two disciplines: *coverage* (look at everything in scope) and *narr
 6. Narrow to 1-2 most likely *real* issues per category.
 7. Validate — read the code, don't speculate.
 
+**Verification evidence — prefer execution, accept a traced read.** When you confirm a finding, rank the basis and prefer the strongest available — but the runtime often isn't reachable from a review, so execution is *preferred, not required*:
+
+1. **Execution** (strongest) — you ran a test or a minimal repro and observed the wrong behavior. Use it when the branch and its deps make a quick run realistic (a scratch script avoids touching the suite). A reproduced bug is as certain as it gets.
+2. **Traced read** (valid fallback) — a concrete data-flow path `input → path → output` through the *actual* code, quoted with `file:line`. This is real evidence and can stand on its own; it is what most review findings rest on.
+3. **"Looks wrong"** (not sufficient) — a vibe with no trace and no run. This is the only basis that disqualifies a finding. If you can't trace it or run it, don't assert it — drop it or mark the uncertainty per step 8.
+
+A finding confirmed by trace rather than execution is still legitimate; just don't claim more certainty than the trace supports.
+
 8. **Spend scrutiny where the author is nervous, and calibrate confidence by finding class.** If the grounding names author-declared risk areas (a "worth a careful look at the X rule" note), dig there first — the author is pointing at the part they're least sure is correct. Then weight your confidence threshold by *class*: a style/convention finding (the calibration ledger) needs full confidence before you flag it — precision matters more than recall there. But a **correctness, concurrency, or partial-failure bug with real blast radius** — data loss, a wrong terminal/destructive state, state that silently diverges from the source of truth, a security boundary — is worth surfacing even when the trigger is narrow or your confidence is partial, *as long as you name the uncertainty* ("only when the provider omits the timestamp", "races only under concurrent webhooks"). Validate first — never flag a hazard whose precondition you've checked and ruled out (e.g. a side effect that looks un-committed but no caller wraps it in a transaction). But once it's plausible and you can't rule it out, missing a rare corruption bug costs more than a clearly-caveated lower-confidence note.
 
 **Before writing findings — coverage:**
@@ -201,6 +209,15 @@ Flag issues that:
 8. Are clearly not intentional changes by the author.
 9. Handle untrusted user input carefully — see the rules below.
 10. Treat silent local error recovery (parsing/IO/network fallbacks) as high-signal candidates unless there's explicit boundary-level justification.
+
+**Don't over-correct.** The mirror of missing a real bug is inventing one. Both cost author trust. Do **not** flag:
+
+- A requirement the change never signed up for — judge the diff against what it set out to do, not an idealized spec you'd have written.
+- Missing defensive code (a null guard, a try/catch, an extra validation) that **no** input reachable in this codebase actually needs. "Could theoretically be passed a bad value" is not a finding unless you can name the caller that does.
+- An uncovered edge case that's genuinely out of scope, or a hardening step that belongs in a separate change.
+- Style or structure preferences the calibration ledger didn't establish as a repo convention.
+
+If the only way to make a finding "real" is to assume a requirement that isn't there, it isn't a finding. This does **not** soften correctness/security hazards you *can* trace (step 8 still governs those) — it bars the speculative ones.
 
 ## Review checklist (by category)
 
@@ -252,6 +269,25 @@ Flag issues that:
 - **Premature shared abstraction.** A new base-class method, mixin, or utility introduced for a single concrete caller. Wait until the second caller appears — abstractions earn their keep through *use*, not anticipation. A bundled "future PR will use this" justification is a bundled-refactor signal (see "Bundled refactors"), not a justification.
 - **`sys.path` manipulation.** Any new `sys.path.insert(...)` / `sys.path.append(...)` in production or test code. It's a smell for broken packaging — the file is reachable through normal imports if the package layout is right. The `if __package__ in (None, "")` guard makes the hack *safe to ship* but does **not** clear the finding, and a comment asserting it's needed (`# pytest sets sys.path automatically`) is not a pass. Before deciding, check whether the file is (or could be) launched through a recipe you control — a Justfile/Makefile/CI step or a `python tests/…py` invocation: if so, the real fix is `python -m <pkg.module>` and the hack should be deleted, so flag it (at least a P3 nudge that names the `python -m` replacement). Fully exempt only a standalone script with genuinely no runner that could invoke `python -m`.
 - **New instance missing recent sibling uplift.** When the diff adds a new instance of an established class of thing — an admin endpoint, a tool/registry entry, a request handler, a migration, a webhook consumer — check that it carries the same cross-cutting machinery its siblings recently grew: a decorator, an audit / `updated_by` field, an auth guard, a rate limit, a feature-flag check. This is the *inverse* of the blast-radius step: that asks "does my change break existing code?"; this asks "does my new instance match what the established pattern has become?". Recipe: `git log --oneline -10 -- <dir-of-the-new-instance>` to see what siblings changed recently, then diff one recent sibling against its prior version to spot the uplift. Flag a missing trait the last few siblings all carry, unless the diff gives a reason to omit it.
+
+**Structural complexity (APOSD).** Diagnostic vocabulary for *why* a change is hard to work with — name the symptom, don't just say "complex." The three symptoms: **change amplification** (a simple change forces edits in many places), **cognitive load** (the developer must hold too much to work here), and **unknown unknowns** (it's not obvious what code/info a change needs — the worst, flag first). Concrete structural smells the diff can introduce, each a finding only when you can point at the cost:
+
+- **Pass-through method** — a method that just forwards its arguments to another method with essentially the same signature, adding no abstraction. Collapse it.
+- **Shallow module / shallow split** — an interface nearly as complex as the implementation it hides; or a method split where the two halves can't be understood or reused independently (you must read B to understand A). Depth beats length: a longer method with a clean boundary beats two conjoined short ones.
+- **Information leakage** — the same design knowledge (a wire format, an ordering rule, a magic constant's meaning) baked into two modules, so both change together. The `references/patterns.md` "contract literal" blast-radius case is the concrete form.
+- **Temporal decomposition** — module/function boundaries that mirror *execution order* ("step1 / step2 / step3") rather than knowledge, forcing callers to use them in a fixed sequence.
+
+Before flagging any of these, run the **steel-man check**: what's the best case this is intentional? An adapter/facade/decorator where thinness *is* the point, or an injected seam that exists for testing, is not leakage. Prefer cohesion over depth when they conflict, and never flag length alone as complexity.
+
+**Design-pattern fit (GoF) — conservative, apply only when it already hurts.** A pattern is worth naming only when the diff shows a *recurring* shape that the pattern's flexibility clearly outweighs its added indirection — never speculatively. Flag at most at P3, and only past a real threshold:
+
+- A `if/elif`/`switch` ladder dispatching on an object's **type** that the diff *extends* to ≥3 branches (and you can see a 4th coming) → name Strategy or Visitor as the fix direction.
+- The same ladder dispatching on an object's **state** with transitions scattered across call sites → State.
+- Telescoping constructors / a builder hand-rolled as positional args → Builder.
+
+Counter-indicator (do **not** flag): a one-off two-branch conditional, a dispatch that isn't growing, or any case where the straightforward code is clearly simpler than the pattern. "This *could* be a pattern" is pattern-mania, not a finding. Name the pattern as a *direction*, not a mandate — the author decides whether the indirection earns its place.
+
+**Architecture boundaries (Clean Architecture) — detection only.** When the diff touches a layered codebase (domain/entities vs adapters/infrastructure), flag dependencies pointing the wrong way: business/domain code importing a framework, ORM, or transport (`grep` the domain dir for `import.*(spring.web|express|sqlalchemy|prisma|mongoose)`), ORM/serialization annotations on a pure domain entity (`@Entity`/`@Table`/`@Column` in `domain/`), or `instanceof`/`typeof ===` type-switching where polymorphism belongs. Also worth a nudge: a class serving more than one **actor** (a group that requests changes for different reasons — e.g. a model carrying both pay-calculation *and* persistence *and* reporting), since a change for one actor can break another. Only apply this lens when the codebase already has boundaries to respect; don't impose layering on a flat app that doesn't use it.
 
 ### Testing
 

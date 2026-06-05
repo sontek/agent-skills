@@ -25,7 +25,7 @@ Don't use for:
 
 - Reviewing a PR or already-shipped code — use `review-code`
 - Creating a plan from scratch — use `plan-implementation` or `plan-refactor`
-- Interactive pre-plan clarification — use `grill-me`
+- Interactive pre-plan clarification — use `clarify`
 
 ## Process
 
@@ -66,7 +66,16 @@ drafts often skip them:
   concern.
 - **Premortem** — load-bearing assumptions and realistic failure
   modes called out explicitly. A plan that reads as if everything
-  will work the first time is hiding risk. If absent, flag.
+  will work the first time is hiding risk. If absent, flag. If present
+  but every failure mode reads as equally urgent, flag that it doesn't
+  separate likelihood from impact — a high-impact/low-likelihood risk
+  warrants different handling than a likely nuisance.
+- **Approach weighed (non-obvious designs only)** — when the design
+  space is wide, the plan should show 2–3 structurally different
+  approaches compared, with a named pick and the trade-off it accepts —
+  not silently anchor on the first idea. A plan whose recommended
+  approach wins on every criterion hasn't compared; flag the missing
+  trade-off. Skip this check when there's genuinely one obvious way.
 - **Reconnaissance / current-state findings** — relevant files,
   conventions, and gotchas the plan respects. If the plan reasons in
   the abstract without grounding in the actual codebase, flag.
@@ -151,5 +160,5 @@ Things that are fine now but will matter at scale or over time.
   implementation starts.
 - Run on a plan-mode draft before calling `ExitPlanMode` — it's the
   cheapest point to catch architectural mistakes.
-- Use `grill-me` *before* writing the plan for upfront clarification;
+- Use `clarify` *before* writing the plan for upfront clarification;
   use `review-plan` *after* writing it for a judgment pass.

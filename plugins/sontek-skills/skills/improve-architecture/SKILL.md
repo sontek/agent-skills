@@ -29,6 +29,7 @@ Present a numbered list of deepening opportunities. For each candidate, show:
 
 - **Cluster**: Which modules/concepts are involved
 - **Why they're coupled**: Shared types, call patterns, co-ownership of a concept
+- **Friction named**: the APOSD red flag(s) at play (shallow module, information leakage, temporal decomposition, conjoined methods…) and which complexity symptom they cause — see [REFERENCE.md](REFERENCE.md). Steel-man each before naming it: an adapter or a testing seam isn't a defect.
 - **Dependency category**: See [REFERENCE.md](REFERENCE.md) for the four categories
 - **Test impact**: What existing tests would be replaced by boundary tests
 
@@ -67,7 +68,9 @@ Each sub-agent outputs:
 
 Present designs sequentially, then compare them in prose.
 
-After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated — the user wants a strong read, not just a menu.
+When a design maps cleanly onto a named GoF pattern (Strategy, State, Facade, Observer…), name it — but always with its counter-indicator, never speculatively. See [REFERENCE.md](REFERENCE.md) for the symptom→pattern map and the three-part "only when it fits" gate.
+
+After comparing, give your own recommendation: which design you think is strongest and why. If elements from different designs would combine well, propose a hybrid. Be opinionated — the user wants a strong read, not just a menu. Keep the comparison honest: your recommended design should lose on at least one criterion. If every criterion favors it, you haven't compared — you've rationalized; surface the trade-off it actually makes.
 
 ### 6. User picks an interface (or accepts recommendation)
 

@@ -19,7 +19,7 @@ Decide early whether the capability should ship as a **skill** (SKILL.md in `ski
 | The user invokes it inline | The task benefits from isolated context |
 | Main conversation context matters (current git state, recent files) | You want a role/persona that brings judgment |
 | Output is a back-and-forth with the user | You need a specific model (e.g. `opus` for deep reasoning) |
-| Examples: `create-pr`, `commit`, `iterate-pr`, `grill-me` | Examples: `code-simplifier`, `senior-engineer`, `security-auditor` |
+| Examples: `create-pr`, `commit`, `iterate-pr`, `clarify` | Examples: `code-simplifier`, `senior-engineer`, `security-auditor` |
 
 **Naming convention:**
 
@@ -37,7 +37,7 @@ Identify which type of skill you're creating. This drives structure:
 | `integration-documentation` | Document an external/integration pattern | `write-agents-md` |
 | `security-review` | Audit/review checklist | `review-security`, `review-gha-security` |
 | `skill-authoring` | Meta (like this one) | `write-skill` |
-| `generic` | None of the above | `grill-me` |
+| `generic` | None of the above | `clarify` |
 
 ## Process
 

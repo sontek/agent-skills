@@ -1,6 +1,6 @@
 ---
 name: fix-issue
-description: Implement a fix for a bug, issue, or failing behavior from scratch, reproduce-first. Use when asked to "fix this bug", "fix this issue", "resolve #123", "this is broken — make it work", "implement a fix for", or when handed an error/stack trace and expected to make a code change. Reproduce → fix → verify → edge cases → hand off. Distinct from `iterate-pr` (fixes CI/feedback on an existing PR), `optimize-perf` (perf only, benchmark-gated), `auto-review-code` (applies findings from a review), and `plan-implementation` (plans NEW multi-phase features without writing code). For a large multi-phase feature, run `plan-implementation` first, then this per phase.
+description: Implement a fix for a bug, issue, or failing behavior from scratch, reproduce-first. Use when asked to "fix this bug", "fix this issue", "resolve #123", "this is broken — make it work", "implement a fix for", or when handed an error/stack trace and expected to make a code change. Reproduce → fix → verify → edge cases → hand off. Distinct from `debug` (diagnoses the root cause without implementing — hand off to this skill to write the fix), `iterate-pr` (fixes CI/feedback on an existing PR), `optimize-perf` (perf only, benchmark-gated), `auto-review-code` (applies findings from a review), and `plan-implementation` (plans NEW multi-phase features without writing code). For a large multi-phase feature, run `plan-implementation` first, then this per phase.
 ---
 
 # Fix Issue
