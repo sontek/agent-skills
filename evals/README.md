@@ -143,21 +143,24 @@ even though those rules need no change today.
 A later pass mined AI-review-bot comments on merged `stacklet/platform` PRs for
 issues `/review-code` missed, then **proved each gap before writing a rule**: fetch
 the exact commit the bot reviewed, run our reviewer on that real file, and only
-add a rule when it demonstrably misses. Five hypotheses, three confirmed:
+add a rule when it demonstrably misses. Six hypotheses, four confirmed:
 
 | Hypothesis | Verdict | Rule |
 |---|---|---|
 | stale shared "latest" state written by some paths | **confirmed miss** → fixed | `stale_latest_state` |
 | deadline/timeout computed before a thread-pool queue | **confirmed miss** → fixed | `deadline_before_handoff` |
 | schema/columns inferred from the first record | **confirmed miss** → fixed | `first_record_schema` |
+| sort/compare keyed on a non-finite float (NaN) | **confirmed miss** → fixed | `nonfinite_sort_key` |
 | prompt instruction/example contradiction | refuted (reviewer caught it) | none |
 | eval asserts liveness not the graded dimension | refuted (by-design / caught) | none |
 
-Each confirmed rule is validated **twice**: the unit fixtures here (18 cases,
+Each confirmed rule is validated **twice**: the unit fixtures here (26 cases,
 green on Opus-4.8 and Haiku-4.5), and an end-to-end re-run of the full reviewer
-on the original buggy file — red before the rule, green after. The two
-refutations are the point: they stopped rules we didn't need, the same way the
-over-fit audit's `log_assertion`/`type_dispatch` were dropped.
+on the original buggy file — red before the rule, green after. `nonfinite_sort_key`
+carries an FP-weighted safe set (plain finite-float sorts must stay clean); both
+models hold that line. The two refutations are the point: they stopped rules we
+didn't need, the same way the over-fit audit's `log_assertion`/`type_dispatch`
+were dropped.
 
 ## Provenance
 

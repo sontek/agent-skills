@@ -26,6 +26,11 @@
     "start": "- **Schema or column-set derived from the first element of a heterogeneous collection.**",
     "end": "- Refactors that look like no-ops but change invariants:"
   },
+  "nonfinite_sort_key": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Ordering or equality keyed on a value the comparator can't order",
+    "end": "- **Time-bomb constants.**"
+  },
   "path_traversal": {
     "file": "../plugins/sontek-skills/agents/code-reviewer.md",
     "start": "- **Fragile path traversal.**",
