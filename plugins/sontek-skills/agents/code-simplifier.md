@@ -265,6 +265,8 @@ Flag any `TODO`/`FIXME`/`XXX`/`HACK` regardless of label. Force the author to re
 
 Module or function docstrings that explain WHY a design was chosen over alternatives, restate what the code does, or run past a one-sentence purpose statement.
 
+**Delete-vs-tighten gate:** this rule decides *deletion* — a comment whose WHY is disposable because it restates the code, argues why-over-alternatives, or is derivable from what the next line shows. A *legitimate, non-obvious* WHY that is merely too long is `comments.over-explanatory` (tighten), never this rule. Deletion is decided first, so a comment is never in both buckets.
+
 ```python
 # Bad
 """Helper for X.
@@ -280,7 +282,7 @@ don't want. The parity test fires if a future refactor moves auto-injection.
 Flag when:
 
 - A module docstring runs > 3 lines AND the first sentence already states the purpose.
-- A function docstring runs > 2 lines arguing for the design, or an inline comment runs > 2 lines explaining design intent rather than a non-obvious WHY.
+- A function docstring runs > 2 lines arguing for the design, or an inline comment > 2 lines restates the code or argues why-over-alternatives. (An inline comment carrying a real, non-obvious WHY that is simply verbose is out of scope here — route it to `comments.over-explanatory`.)
 
 **Exempt:** hidden constraints, subtle invariants, workarounds with bug citations, public-API contracts with versioned interfaces.
 
@@ -303,6 +305,40 @@ Flag bare:
 - Forward-looking: "when X lands", "in a future PR", "next upgrade", "once X stabilizes".
 
 **Exempt:** comments anchored to a ticket reference or a reproducible incident.
+
+### comments.over-explanatory (severity: medium)
+
+**Applies only after the deletion rules have cleared the comment** — the WHY is
+load-bearing and survives `comments.docstring-rationale`. This rule never decides
+whether to keep a comment; it only shortens one already kept. A comment whose WHY
+is legitimate — a real invariant, gotcha, or non-obvious rationale — but stated in
+more lines than the point needs. Disposable WHY → docstring-rationale (delete);
+load-bearing WHY in too many words → this rule (tighten): keep the information,
+cut the words.
+
+```javascript
+// Bad — 3 lines for a one-line point
+// Run in its own process group so a Ctrl-C in the terminal does not reach
+// the go/air/server tree directly. That keeps the tree intact until our
+// own handler snapshots and tears it down (see shutdown()).
+detached: !isWindows,
+
+// Good
+// Own process group, so the terminal's Ctrl-C doesn't race shutdown()'s teardown.
+detached: !isWindows,
+```
+
+Flag when a comment that survives the deletion rules still:
+
+- Restates the same point across multiple sentences, or
+- Spends a clause on something the next line of code already shows, or
+- Duplicates a WHY a nearby comment already gave.
+
+Propose the tightened wording — this is a low-risk, apply-directly fix. Never
+use this rule to delete a load-bearing WHY; only to shorten it.
+
+**Exempt:** comments where every line carries information not derivable from the
+code (a multi-step invariant, a cited bug, an ordering constraint with a reason).
 
 ### organization.barrel-file-density (severity: weak)
 
@@ -353,6 +389,12 @@ Flag bare:
 2. Analyze for opportunities to improve elegance and consistency
 3. Apply project-specific best practices and coding standards
 4. Run the AI Slop Detection Rules as an explicit pass
+4b. **Comment pass.** For every comment added or changed in scope, classify it
+    delete (slop — placeholder/template/restating/narration) / tighten
+    (`comments.over-explanatory` — justified WHY, too many words) / keep-minimal
+    (load-bearing and already as short as it can be). Record the counts for the
+    required Comments output line. A caller "intentional" note removes a comment
+    from the *delete* bucket only — it does NOT exempt it from *tighten*.
 5. Ensure all functionality remains unchanged
 6. Verify the refined code is simpler and more maintainable
 7. Document only significant changes that affect understanding
@@ -372,6 +414,10 @@ Start the report with the **Codebase calibration ledger** from Phase 0b — requ
 Then for each file touched, report:
 - **File path**
 - **Changes**: bullet list of simplifications applied, referencing rule IDs where applicable (e.g. `defensive.error-swallowing`)
+- **Comments**: `<N> in scope → deleted <a>, tightened <b>, kept <c>`. This line
+  is REQUIRED whenever any comment is in scope, even when nothing changed
+  (`kept = all`). A missing Comments line means the comment pass was skipped —
+  which is itself a defect in the review.
 - **Evidence**: one-liner per change (e.g., `line 42: catch logs only → let throw`)
 
 You operate autonomously and proactively, refining code immediately after it's written or modified without requiring explicit requests. Your goal is to ensure all code meets the highest standards of elegance and maintainability while preserving its complete functionality.

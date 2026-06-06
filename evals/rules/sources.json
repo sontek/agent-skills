@@ -50,5 +50,10 @@
     "file": "../plugins/sontek-skills/agents/gha-security-reviewer.md",
     "start": "### Check 2: Expression injection",
     "end": "## Step 3: Validate before reporting"
+  },
+  "comments_over_explanatory": {
+    "file": "../plugins/sontek-skills/agents/code-simplifier.md",
+    "start": "### comments.over-explanatory (severity: medium)",
+    "end": "### organization.barrel-file-density (severity: weak)"
   }
 }

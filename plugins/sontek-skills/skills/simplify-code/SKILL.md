@@ -50,6 +50,12 @@ Caller notes (don't flag these — intentional):
 Run your full AI Slop Detection Rules pass. Return per-file fixes with rule IDs.
 ```
 
+A caller "intentional" / "don't flag X" note suppresses **deletion** of that
+comment's information. It does NOT exempt the comment from
+`comments.over-explanatory` tightening: "intentional" means the WHY is wanted,
+not that the wording is final. Forward the note verbatim, but do not let it
+stand down the comment pass entirely.
+
 Do not perform the simplification yourself — the agent owns the rubric.
 
 ## Phase 3 — Apply Findings
