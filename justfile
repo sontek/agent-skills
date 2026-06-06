@@ -49,6 +49,14 @@ eval-old provider="bedrock": _ensure
 # A/B both wordings back to back (old "before", then current "after").
 ab provider="bedrock": (eval-old provider) (eval provider)
 
+# Same as eval/eval-old/ab, for Bedrock models that reject `temperature` (Opus 4.6+).
+# Set EVAL_BEDROCK_MODEL (e.g. us.anthropic.claude-opus-4-8) and AWS_REGION=us-west-2.
+eval-notemp provider="bedrock": _ensure
+    cd {{evals}} && mise exec -- {{promptfoo}} eval -c promptfooconfig.notemp.yaml --filter-providers {{provider}}
+eval-old-notemp provider="bedrock": _ensure
+    cd {{evals}} && RULE_VARIANT=old mise exec -- {{promptfoo}} eval -c promptfooconfig.notemp.yaml --filter-providers {{provider}}
+ab-notemp provider="bedrock": (eval-old-notemp provider) (eval-notemp provider)
+
 # Open the promptfoo result grid in the browser.
 view: _ensure
     cd {{evals}} && mise exec -- {{promptfoo}} view
