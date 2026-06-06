@@ -194,7 +194,14 @@ with `just ab-notemp` (Opus 4.6+ rejects the `temperature` field — see the
 `*-notemp` recipes). A fifth change — widening
 `structure.duplicate-function-signatures` to compare against pre-existing siblings
 and hoist to an existing base class — is not unit-testable in this single-snippet
-harness (it needs the full agent on a two-file diff) and is verified there instead.
+harness. A behavioral two-file test (a new detector duplicating a *committed*
+sibling not in the diff) confirmed the live skill **does** flag the duplication and
+name the out-of-diff sibling — but the base model with no plugin does the same on a
+small diff, so the behavior **does not discriminate** from baseline and earns no
+behavioral gate (the same drop-non-discriminating rationale as the over-fit audit).
+The widening stays as an explicit cue for the focused structure lane, where the
+payoff is attention at diff scale that a small fixture can't measure; treat it as
+verified-to-fire, not independently gated.
 
 ## Provenance
 
