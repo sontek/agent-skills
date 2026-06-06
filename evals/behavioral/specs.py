@@ -48,6 +48,95 @@ def setup_empty_repo(proj: Path) -> None:
     _init_repo(proj)
     _git(proj, "commit", "-q", "--allow-empty", "-m", "init")
 
+def setup_slop_repo(proj: Path) -> None:
+    """A repo with staged, multi-lane AI slop for the deslop fan-out to chew on.
+
+    Spans every lane so each one has a file to gate on: a heterogeneous tasks
+    module (complexity/god-module), a test-only abstraction (structure/dead-code),
+    deep nesting (complexity), a scaffolding comment (comments), and a swallowing
+    try/except (defensive).
+    """
+    _init_repo(proj)
+    (proj / "README.md").write_text("# app\n")
+    _git(proj, "add", "-A")
+    _git(proj, "commit", "-q", "-m", "baseline")
+    (proj / "src").mkdir()
+    (proj / "tests").mkdir()
+    (proj / "src" / "tasks.py").write_text(
+        '''from celery import shared_task
+
+
+@shared_task
+def sync_github_pull_requests(repo_id):
+    GitHubProvider(repo_id).sync_open_pulls()
+
+
+@shared_task
+def reconcile_stripe_subscription(org_id):
+    stripe.Subscription.retrieve(org_id)
+
+
+@shared_task
+def send_welcome_email(user_id):
+    mailer.send(to=user_id, template="welcome")
+
+
+@shared_task
+def export_audit_csv(org_id):
+    storage.save(f"audit/{org_id}.csv", _to_csv(org_id))
+'''
+    )
+    (proj / "src" / "command_router.py").write_text(
+        '''from dataclasses import dataclass
+
+
+@dataclass
+class ParsedCommand:
+    name: str
+    args: list
+
+
+class CommandRouter:
+    def route(self, raw):
+        name, *args = raw.lstrip("/").split()
+        return ParsedCommand(name=name, args=args)
+'''
+    )
+    (proj / "tests" / "test_command_router.py").write_text(
+        '''from src.command_router import CommandRouter
+
+
+def test_route():
+    assert CommandRouter().route("/x a").name == "x"
+'''
+    )
+    (proj / "src" / "views.py").write_text(
+        '''import json
+
+
+def list_open_prs(repo, since):
+    out = []
+    for page in repo.paginate("/pulls"):
+        for pr in page:
+            if pr["state"] == "open":
+                if pr.get("user"):
+                    if pr.get("created_at"):
+                        if pr["created_at"] >= since:
+                            out.append(pr["number"])
+    return out
+
+
+def load_config(path):
+    # TODO: implement more validation here
+    try:
+        return json.load(open(path))
+    except Exception as e:
+        print(e)
+        return {}
+'''
+    )
+    _git(proj, "add", "-A")
+
 _TRAILER = re.compile(r"Co-Authored-By|Generated with|🤖", re.I)
 
 def prop_commit_clean(t: Transcript, proj: Path) -> bool:
@@ -67,6 +156,30 @@ def prop_probe_asked(t: Transcript, proj: Path) -> bool:
 
 def evidence_probe(t: Transcript, proj: Path) -> str:
     return "clarify fired" if t.skill_fired("clarify") else "clarify NOT fired"
+
+def _lane_dispatches(t: Transcript) -> int:
+    """Count read-only code-simplifier lane sub-agents the fan-out dispatched.
+
+    The runtime exposes the sub-agent tool as `Agent` (older runtimes: `Task`);
+    match either, and only count dispatches whose subagent_type is code-simplifier.
+    """
+    n = 0
+    for e in t.events:
+        if e.get("type") != "assistant":
+            continue
+        for b in e.get("message", {}).get("content", []) or []:
+            if b.get("type") == "tool_use" and b.get("name") in ("Agent", "Task"):
+                st = (b.get("input", {}) or {}).get("subagent_type", "") or ""
+                if "code-simplifier" in st:
+                    n += 1
+    return n
+
+def prop_fanned_out(t: Transcript, proj: Path) -> bool:
+    return _lane_dispatches(t) >= 4
+
+def evidence_fanout(t: Transcript, proj: Path) -> str:
+    return (f"{_lane_dispatches(t)} code-simplifier lane agents; "
+            f"simplify-code fired={t.skill_fired('simplify-code')}")
 
 
 # --- arm + spec types --------------------------------------------------------
@@ -101,6 +214,13 @@ class TestSpec:
 _CLARIFY_SIGNALING_PROMPT = (
     "Use the clarify skill to interview me about this: I want to build an API. "
     "Make it really scalable, clean, and modern."
+)
+
+# Force-invoke simplify-code on the slop repo (headless under-triggers natural
+# language, so name the skill — we're testing the fan-out body, not triggering).
+_SIMPLIFY_PROMPT = (
+    "Use the simplify-code skill to review and clean up the staged changes in "
+    "this repository. Follow the skill's process exactly."
 )
 
 
@@ -138,6 +258,22 @@ SPECS: dict[str, TestSpec] = {
         expect_on=True,
         max_turns=2,
         evidence=evidence_probe,
+    ),
+    # PROVEN (smoke): simplify-code fans out to read-only code-simplifier lane
+    # detectives. ON (plugin loaded) dispatches >=4 lane sub-agents; OFF (no
+    # plugin) the base model edits directly and dispatches none. Guards against
+    # the fan-out silently regressing to a single agent.
+    "simplify-fanout": TestSpec(
+        name="simplify-fanout",
+        doc="simplify-code fans out to >=4 read-only code-simplifier lane detectives (skill on vs off)",
+        setup=setup_slop_repo,
+        prop=prop_fanned_out,
+        prop_desc=">=4 code-simplifier lane sub-agents dispatched",
+        arm_on=Arm("skill-ON", _SIMPLIFY_PROMPT, plugin=PLUGIN_DIR, disable_global=True),
+        arm_off=Arm("skill-OFF", _SIMPLIFY_PROMPT, plugin=None, disable_global=True),
+        expect_on=True, expect_off=False,
+        max_turns=10,
+        evidence=evidence_fanout,
     ),
 }
 
