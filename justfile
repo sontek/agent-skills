@@ -57,6 +57,16 @@ view: _ensure
 validate: _ensure
     cd {{evals}} && mise exec -- {{promptfoo}} validate
 
+# Behavioral skill tests — run a skill end-to-end via headless `claude -p` and
+# check it DISCRIMINATES from baseline (skill on/off, or edit before/after).
+# Complements the promptfoo suite (detection rules); covers triggering + procedure.
+# Spends tokens (real claude runs). [names...] or empty for all; --runs N, --keep.
+#   just behavioral list
+#   just behavioral run commit
+#   just behavioral run --runs 3
+behavioral *ARGS:
+    cd {{evals}} && uv run --no-project python -m behavioral {{ARGS}}
+
 # Remove the local toolchain and promptfoo's eval cache/output.
 clean:
     cd {{evals}} && rm -rf node_modules .promptfoo output.json
