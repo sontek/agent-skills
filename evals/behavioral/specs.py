@@ -60,7 +60,7 @@ def prop_commit_clean(t: Transcript, proj: Path) -> bool:
 def evidence_commit(t: Transcript, proj: Path) -> str:
     return "HEAD msg: " + _git(proj, "log", "-1", "--format=%s").strip()
 
-_PROBE = re.compile(r"didn't have to justify|actually want|really want", re.I)
+_PROBE = re.compile(r"didn.t have to justify|what would you actually want", re.I)
 
 def prop_probe_asked(t: Transcript, proj: Path) -> bool:
     return bool(_PROBE.search(t.text))
@@ -88,24 +88,20 @@ class TestSpec:
     prop: Callable[[Transcript, Path], bool]
     prop_desc: str
     arm_on: Arm
-    arm_off: Arm
+    arm_off: Arm | None = None  # None => single-arm assertion against the live skill
     expect_on: bool = True
     expect_off: bool = False
     max_turns: int = 5
     evidence: Callable[[Transcript, Path], str] | None = None
 
 
-# --- the candidate edits under test (also the real text we'd ship) ----------
-CLARIFY_PROBE_EDIT = {
-    "skills/clarify/SKILL.md": (
-        "## Probe: want vs. should-want\n\n"
-        "When the user answers with sophistication-signaling words (\"scalable\", "
-        "\"clean\", \"modern\", \"best practice\", \"robust\") instead of a concrete "
-        "need, fire ONE probe before continuing: ask \"If you didn't have to justify "
-        "this to anyone, what would you actually want?\" Treat the answer as the real "
-        "requirement, not the performance."
-    )
-}
+# Prompt that hands clarify a sophistication-signaling request (the trigger for
+# the want/should-want probe). Shared so the regression guard and any future
+# A/B use identical wording.
+_CLARIFY_SIGNALING_PROMPT = (
+    "Use the clarify skill to interview me about this: I want to build an API. "
+    "Make it really scalable, clean, and modern."
+)
 
 
 # --- the registry ------------------------------------------------------------
@@ -125,20 +121,21 @@ SPECS: dict[str, TestSpec] = {
                     plugin=None, disable_global=True),
         expect_on=True, expect_off=False,
     ),
-    # EDIT-GATE: does adding the want/should-want probe to clarify change behavior?
+    # Single-arm assertion against the LIVE clarify skill: on a signaling prompt,
+    # clarify must ask the want/should-want probe. RED until the probe ships in
+    # clarify/SKILL.md; GREEN after — and a regression guard if it's ever removed.
+    # (The base/current skill scores False, so this test has teeth — confirmed by
+    # the discrimination A/B before this was simplified to single-arm.)
     "clarify-probe": TestSpec(
         name="clarify-probe",
-        doc="clarify edit: asks the want/should-want probe on a signaling prompt (after-edit vs before)",
+        doc="live clarify asks the want/should-want probe on a signaling prompt",
         setup=setup_empty_repo,
         prop=prop_probe_asked,
         prop_desc="model asks the want/should-want probe",
-        arm_on=Arm("after-edit",
-                   "Use the clarify skill to interview me about this: I want to build an API. Make it really scalable, clean, and modern.",
-                   edit=CLARIFY_PROBE_EDIT, disable_global=True),
-        arm_off=Arm("before-edit",
-                    "Use the clarify skill to interview me about this: I want to build an API. Make it really scalable, clean, and modern.",
-                    plugin=PLUGIN_DIR, disable_global=True),
-        expect_on=True, expect_off=False,
+        arm_on=Arm("live-clarify", _CLARIFY_SIGNALING_PROMPT,
+                   plugin=PLUGIN_DIR, disable_global=True),
+        arm_off=None,  # single-arm assertion against the live skill
+        expect_on=True,
         max_turns=2,
         evidence=evidence_probe,
     ),
@@ -161,6 +158,19 @@ def _run_arm(spec: TestSpec, arm: Arm, work: Path) -> tuple[bool, str, Transcrip
 
 def run_spec(spec: TestSpec, runs: int, work_root: Path) -> bool:
     print(f"=== {spec.name}: {spec.doc} ===")
+    if spec.arm_off is None:
+        # Single-arm assertion against the live skill: pass iff every run matches.
+        print(f"    assert: {spec.prop_desc}  (expect {spec.expect_on})")
+        ok = 0
+        for i in range(1, runs + 1):
+            val, ev, _ = _run_arm(spec, spec.arm_on, work_root / f"{spec.name}-{i}")
+            mark = "PASS" if val == spec.expect_on else "FAIL"
+            print(f"    run {i}:  {spec.arm_on.label}={val} [{mark}] ({ev})")
+            ok += val == spec.expect_on
+        passed = ok == runs
+        print(f"    --- {ok}/{runs} matched  =>  {'PASS' if passed else 'FAIL'}\n")
+        return passed
+
     print(f"    property: {spec.prop_desc}  (expect ON={spec.expect_on}, OFF={spec.expect_off})")
     on_ok = off_ok = 0
     for i in range(1, runs + 1):

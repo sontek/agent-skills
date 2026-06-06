@@ -53,6 +53,10 @@ When you can, show the difference instead of describing it: "Right now errors si
 | **Confirm risk** | High-stakes, irreversible action | "This drops the existing table. Proceed, or migrate the data first?" |
 | **Report a blocker** | An objective barrier exists | "The API rate-limits to 100 req/s; the design needs 300. How should we handle that?" |
 
+## Probe for the real want, not the performed one
+
+When the user answers with sophistication-signaling words — "scalable," "clean," "modern," "robust," "best practice" — instead of a concrete need, ask this probe *first*, ahead of any other question: *"If you didn't have to justify this to anyone, what would you actually want here?"* Those words are usually a proxy for what they think they *should* want; treat the answer to the probe as the real requirement.
+
 ## Effort awareness — ask about intent, figure out the rest yourself
 
 Estimate what each question costs the user, and route accordingly:
