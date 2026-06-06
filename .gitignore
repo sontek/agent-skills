@@ -9,3 +9,10 @@ evals/output.json
 evals/baseline.json
 evals/probe.json
 evals/*.local.json
+
+# Local Claude Code permission overrides (not committed)
+.claude/settings.local.json
+
+# Python bytecode
+__pycache__/
+*.pyc
