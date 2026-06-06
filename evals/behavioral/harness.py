@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from dataclasses import dataclass, field
@@ -124,12 +125,23 @@ def run_claude(
     if disable_global:
         cmd += ["--settings", _DISABLE_GLOBAL]
 
+    proc = None
     with open(tpath, "wb") as out, open(out_dir / "stderr.log", "wb") as err:
         try:
-            subprocess.run(cmd, cwd=str(cwd), stdout=out, stderr=err, timeout=timeout, check=False)
+            proc = subprocess.run(cmd, cwd=str(cwd), stdout=out, stderr=err, timeout=timeout, check=False)
         except subprocess.TimeoutExpired:
             pass  # partial transcript is still worth parsing
-    return Transcript.parse(tpath)
+    t = Transcript.parse(tpath)
+    # Distinguish a TOOL failure (claude errored, empty transcript) from a genuine
+    # behavioral negative. Without this, a non-zero exit makes every prop False and
+    # the spec reads as a plain FAIL — a false red the maintainer can't diagnose.
+    if proc is not None and proc.returncode != 0 and not t.events:
+        tail = (out_dir / "stderr.log").read_text(errors="replace")[-500:]
+        raise RuntimeError(
+            f"claude exited {proc.returncode} with no parseable events; "
+            f"see {out_dir / 'stderr.log'}\n{tail}"
+        )
+    return t
 
 
 def edited_plugin(edits: dict[str, str], workdir: Path) -> Path:
@@ -139,8 +151,6 @@ def edited_plugin(edits: dict[str, str], workdir: Path) -> Path:
     to text appended at end of file. Returns the copy's path for --plugin-dir.
     Used by edit-gating tests: the "after" arm points here, "before" at PLUGIN_DIR.
     """
-    import shutil
-
     dst = workdir / "plugin"
     shutil.copytree(PLUGIN_DIR, dst)
     for rel, addition in edits.items():
