@@ -79,5 +79,17 @@
     "file": "../plugins/sontek-skills/agents/code-simplifier.md",
     "start": "### organization.god-module (severity: medium)",
     "end": "### organization.barrel-file-density (severity: weak)"
+  },
+
+  "type_invariant_enforcement": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Invalid instance constructible",
+    "end": "**Structural complexity (APOSD).**"
+  },
+
+  "comment_contradicts_code": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Comment makes a checkable claim",
+    "end": "- **Codebase type aliases.**"
   }
 }
