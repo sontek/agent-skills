@@ -5,14 +5,14 @@ description: Automatically iterate review-code and code-simplifier until no more
 
 # Auto Review Code
 
-Loop: run the `review-code` skill → auto-apply safe fixes → run the `code-simplifier` agent → auto-apply safe fixes, repeat until convergence or escalation. Collects risky changes into a single end-of-run approval bucket so the user isn't prompted per-finding.
+Loop: run the `review-code` skill → auto-apply safe fixes → run the `simplify-code` lane fan-out → auto-apply safe fixes, repeat until convergence or escalation. Collects risky changes into a single end-of-run approval bucket so the user isn't prompted per-finding.
 
-The review phase delegates to the `review-code` skill, which fans out to every relevant specialist in isolated context (`code-reviewer` and `security-auditor` always; `django-access-reviewer` + `django-perf-reviewer` when the diff touches Django; `gha-security-reviewer` when it touches workflows) and returns one normalized, deduplicated report. The simplify phase runs the `code-simplifier` agent. Everything runs as sub-agents via the Task tool — never inline in the caller's context — so the review stays independent of whoever invoked auto-review-code. **This skill owns only the loop: triage, apply, converge.** Reviewer selection and coalescing live in `review-code`; don't re-implement them here.
+The review phase delegates to the `review-code` skill, which fans out to every relevant specialist in isolated context (`code-reviewer` and `security-auditor` always; `django-access-reviewer` + `django-perf-reviewer` when the diff touches Django; `gha-security-reviewer` when it touches workflows) and returns one normalized, deduplicated report. The simplify phase delegates to the `simplify-code` skill, which fans out to the in-scope code-quality lane detectives (each a focused `code-simplifier` run, read-only) and returns coalesced findings. Everything runs as sub-agents via the Task tool — never inline in the caller's context — so the review stays independent of whoever invoked auto-review-code. **This skill owns only the loop: triage, apply, converge.** Reviewer selection and coalescing live in `review-code`; lane selection and coalescing live in `simplify-code`; don't re-implement them here.
 
 ## When to use
 
 - User says "auto-review-code", "auto-fix", "clean up until it's clean", or similar
-- User wants to stop manually re-running `review-code` and the `code-simplifier` agent after each round of fixes
+- User wants to stop manually re-running `review-code` and `simplify-code` after each round of fixes
 - Cleaning a feature branch before opening a PR
 
 ## When NOT to use

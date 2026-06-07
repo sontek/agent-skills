@@ -80,7 +80,7 @@ just eval
 The default Bedrock model id in `promptfooconfig.yaml` is a **placeholder** —
 set `EVAL_BEDROCK_MODEL` to your account's Opus inference-profile id.
 
-> **Node version:** promptfoo (pinned to the latest, `0.121.14`) declares
+> **Node version:** promptfoo (pinned to the latest, `0.121.15`) declares
 > `engines ^20.20.0 || >=22.22.0`. `.mise.toml` at the repo root pins Node
 > `24.15.0`, and every recipe runs through `mise exec`, so the right Node is used
 > regardless of your shell — install [mise](https://mise.jdx.dev) and the
@@ -161,6 +161,47 @@ carries an FP-weighted safe set (plain finite-float sorts must stay clean); both
 models hold that line. The two refutations are the point: they stopped rules we
 didn't need, the same way the over-fit audit's `log_assertion`/`type_dispatch`
 were dropped.
+
+### Code-quality rules added from a slop-audit tool (prove-the-discrimination-first)
+
+A third pass mined the lanes of an external "slop audit" tool (cognitive
+complexity, size/sprawl, structural duplication, dead code) for code-quality
+dimensions our `code-simplifier` had no fire-able rule for. Four new rules landed
+in `code-simplifier.md`; each carries a `*.old.md` snapshot of the **honest
+pre-rule guidance** (the generic clarity/abstraction prose that predated it), so
+`just ab` measures whether the *specific* rule beats the generic baseline — the
+churn bar that dropped `log_assertion`/`type_dispatch`.
+
+The discrimination is engineered into **boundary safe cases**, not the catches:
+a cohesive `coverages/tasks.py` vs a heterogeneous `tasks.py` (same shape, one
+keys on subsystem-heterogeneity); an irreducible resource-scope nest vs reducible
+guard-clause nesting; a framework-discovered `Command` vs a dead class. A rule
+"earns its place" only when the generic baseline mishandles a boundary case the
+specific rule gets right.
+
+| Rule | generic baseline (old) | live rule (current) | discriminates on |
+|---|---|---|---|
+| `inline_data_blob` | Opus **3/5** · Haiku 5/5 | **5/5 both** | Opus — generic won't "move data out" of a view from "reduce complexity" |
+| `reducible_complexity` | Opus **4/6** · Haiku **5/6** | **6/6 both** | both — generic FPs irreducible resource-scopes / misses flat branch-density |
+| `dead_code_unused_abstraction` | Opus 6/6 · Haiku **4/6** | **6/6 both** | Haiku — generic misses test-only abstractions |
+| `god_module` | Opus 6/6 · Haiku **3/6** | **6/6 both** | Haiku — generic FPs the API router + cohesive tasks, misses heterogeneous tasks |
+
+Full suite after this pass: **92/92 on both Opus-4.8 and Haiku-4.5**. (This pass
+also tightened `comments_over_explanatory` with a hard citation gate — a comment
+anchored to an incident/bug id is load-bearing, return CLEAN — which closed two
+long-standing Haiku safe-case FPs without losing any catch.) Run the A/B on Opus
+with `just ab-notemp` (Opus 4.6+ rejects the `temperature` field — see the
+`*-notemp` recipes). A fifth change — widening
+`structure.duplicate-function-signatures` to compare against pre-existing siblings
+and hoist to an existing base class — is not unit-testable in this single-snippet
+harness. A behavioral two-file test (a new detector duplicating a *committed*
+sibling not in the diff) confirmed the live skill **does** flag the duplication and
+name the out-of-diff sibling — but the base model with no plugin does the same on a
+small diff, so the behavior **does not discriminate** from baseline and earns no
+behavioral gate (the same drop-non-discriminating rationale as the over-fit audit).
+The widening stays as an explicit cue for the focused structure lane, where the
+payoff is attention at diff scale that a small fixture can't measure; treat it as
+verified-to-fire, not independently gated.
 
 ## Provenance
 

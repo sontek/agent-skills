@@ -104,6 +104,8 @@ Multiple functions with near-identical bodies. Fingerprint the normalized body (
 
 **This requires an explicit cross-file pass.** Per-file review alone misses sibling duplication (the most common shape: two new `_<thing>_render.py` files added in the same diff that share 80% of their body). Run the fingerprinting step **before** per-file review (see "Refinement Process" Phase 0): list every file in scope, build a one-line shape summary per top-level function (signature + body line count + first non-trivial call), and pair-compare. Anything ≥70% shape overlap → flag for consolidation.
 
+**Compare against pre-existing siblings, not just files in the diff.** The clone's twin is often already on disk — a new `FooDetector.detect` that duplicates an existing `BarDetector.detect`, or a helper copied verbatim from a sibling module. Diff-only comparison misses this entirely. For each new or changed top-level function/method, also fingerprint the **sibling files in its package** (same directory, and the other subclasses of its base class) and pair-compare there too. When the duplicated bodies are methods on sibling subclasses of a shared base, the fix is **hoist the common body to the existing base class** — a template method, or a shared helper the base exposes — *not* "extract a new helper". Name the base class and the methods that collapse into it (e.g. `FlakyJobDetector.detect` + `FlakyTestDetector.detect` → a `BaseDetector.detect` template calling per-subclass hooks; `_severity_for_rate`/`_identity_key` repeated across detectors → one copy on `BaseDetector`).
+
 ### structure.pass-through-functions (severity: medium)
 
 Single-line forwarders that add no value:
@@ -328,17 +330,136 @@ detached: !isWindows,
 detached: !isWindows,
 ```
 
-Flag when a comment that survives the deletion rules still:
+**Check the hard exemption first:** if the comment cites a specific incident,
+ticket, issue, or bug id (`#2218`, `INC-4821`, `jsdom#3363`, `ENG-1234`), it is
+load-bearing context — return CLEAN, never flag it for length, no matter how many
+clauses it has.
 
-- Restates the same point across multiple sentences, or
+Otherwise, flag only when you can point to the **specific words to cut** — a
+comment that survives the deletion rules and still:
+
+- Restates the same point across multiple sentences (the second adds no fact), or
 - Spends a clause on something the next line of code already shows, or
-- Duplicates a WHY a nearby comment already gave.
+- Duplicates a WHY a nearby comment already gave, or
+- Pads with scaffolding — "The reason this matters is…", "even though X, we do Y
+  because…", "We do X instead of Y because…" — that reduces to the bare WHY.
+
+**Length alone is never the trigger; *removable redundancy* is** — if you cannot
+name a specific word or clause to cut without losing a distinct fact, leave the
+comment. A 3–4 line comment where each line carries a different fact (a constraint,
+a failure mode, a tie-breaker, the reason behind an ordering) is already minimal.
 
 Propose the tightened wording — this is a low-risk, apply-directly fix. Never
 use this rule to delete a load-bearing WHY; only to shorten it.
 
 **Exempt:** comments where every line carries information not derivable from the
 code (a multi-step invariant, a cited bug, an ordering constraint with a reason).
+
+### dead-code.unused-abstraction (severity: strong)
+
+A class, function, dataclass, or constant in non-test code with **zero production call sites** — referenced only by its own unit tests, or by nothing at all. The tell: grep the symbol name across non-test source and the only hit is its own definition; every other hit is under a test path (`test_*`, `*_test.*`, `*.test.*`, `tests/`, `__tests__/`). This is speculative generality — an abstraction built for a use that never landed (an abandoned `CommandRouter`, a parser wired to nothing), kept alive only by the tests that exist to test it.
+
+```python
+# Smell — CommandRouter + ParsedCommand are defined and unit-tested, but no
+# production code constructs or calls CommandRouter. Its only importer is
+# test_command_router.py.
+class CommandRouter:
+    def route(self, raw: str) -> ParsedCommand: ...
+```
+
+Flag when ALL of:
+
+- The symbol is defined in non-test code.
+- One search for the symbol across non-test source returns only its definition — no production constructor, call, import, or registration.
+- Its only references are test files, or there are none.
+
+Verify with one query before flagging, and record it: `rg -n '\bCommandRouter\b' -g '!**/test*' -g '!**/tests/**'` (substitute the symbol). Only the definition line comes back → fire.
+
+**Because removal deletes the code *and* its now-orphaned tests, treat the fix as higher-risk** — present the symbol, the verify command, and the hit count, and let the user confirm deletion rather than auto-removing.
+
+**Exempt:** public API / plugin entry points consumed out-of-tree (listed in `__all__`, an entry-point group, a Django URLconf / DRF router, a registry or decorator-based plugin table, a serializer referenced by string); a symbol the **same diff** wires in elsewhere (the caller arrives in a later file of the same change); migrations, fixtures, and framework-required stubs. Dynamic dispatch (`getattr`, string-keyed registries) can hide a real caller — when the codebase uses that pattern, confirm there is genuinely no dynamic reference before flagging.
+
+### structure.inline-data-blob (severity: medium)
+
+A large literal data structure or block of static content embedded directly in a function/view body — mock/demo rows, FAQ question/answer text, sample payloads, a table of human-facing copy — where the data is the bulk of the function and belongs in a fixture, template, JSON/CSV file, or module-level constant. AI commonly inlines demo/seed data this way; it inflates the function, buries the actual logic, and spikes the complexity metric for branching that isn't really there.
+
+```python
+# Smell — a demo view whose body is mostly a hand-built data matrix
+def data_grid_demo(request):
+    rows = []
+    for commit in range(30):
+        for job in range(12):
+            rows.append({"commit": f"c{commit}", "job": f"j{job}",
+                         "status": "pass" if (commit + job) % 7 else "fail",
+                         "duration": 1.2 + job * 0.3})   # 200+ more lines like this
+    return render(request, "demo.html", {"rows": rows})
+
+# Smell — marketing copy as Python literals
+def pricing(request):
+    faqs = [
+        {"q": "Can I cancel anytime?", "a": "Yes, you can cancel ... (long paragraph)"},
+        # ... 90 more lines of Q&A text
+    ]
+    return render(request, "pricing.html", {"faqs": faqs})
+```
+
+Flag when ALL of:
+
+- A function/view body is dominated (most of its lines) by a **static literal** — a list/array of dicts, a long run of string literals, a big mapping — that is **not** computed from the function's inputs.
+- The content is display / demo / seed / copy data, not control logic.
+- A better home exists: a template, a `fixtures`/data file, or a module-level constant.
+
+Move it to a constant, a template, or a data file (`*.json` / `*.csv`) loaded at module load; leave the function holding logic, not content.
+
+**Exempt:** small domain constants (a handful of entries); a lookup table that is genuinely code (a regex→handler dispatch map); data the function **computes** from its arguments; test fixtures kept inline for locality (though a fixture reused across tests still belongs in a shared module).
+
+### structure.reducible-complexity (severity: medium)
+
+A function whose control flow is hard to follow — **deeply nested** (≥4 levels of loop/conditional/try) **or high branch density** (a long if/elif ladder, repeated fallback lookups, several conditional accumulators in one body) — where a mechanical restructuring flattens it **without changing behavior**. The two shapes share one fix family: get work out of the deep or branchy core.
+
+```python
+# Smell — depth 5 inside a pagination loop (reducible via guard clauses and
+# extracting the inner match into a helper)
+for page in pages:
+    for pr in page:
+        if pr.state == "open":
+            if pr.user:
+                if pr.created_at:
+                    if pr.created_at >= since:
+                        results.append(_to_dto(pr))
+
+# Smell — branch density: a wall of fallback lookups (reducible via a dispatch
+# table / strategy list / early returns)
+if slug:
+    obj = lookup_by_slug(slug)
+elif legacy_id:
+    obj = lookup_by_legacy_id(legacy_id)
+elif external_ref:
+    obj = lookup_by_external_ref(external_ref)
+# ... 6 more elif arms
+```
+
+Flag when BOTH:
+
+- The function the diff adds/modifies hits **nesting depth ≥4** OR a branch count high enough that the logic is hard to hold (a long if/elif ladder, repeated fallback chains, several conditional accumulators), AND
+- The complexity is **reducible** — a guard clause / early `return`/`continue`, an extracted helper, a dispatch table, or a strategy list would flatten it and preserve behavior. State the specific restructuring.
+
+**Reducibility is the gate that keeps this from being churn — depth or branch *count* alone is never the finding.** If the nesting mirrors irreducible structure (a genuine matrix iteration where every level does real work, a parser whose depth tracks the grammar, an exhaustive `match`/`switch` where each arm is a distinct case), it is **not** a finding. Because the fix is a structural refactor, treat it as **higher-risk**: propose the restructuring and the affected call sites and let the user confirm — don't auto-apply.
+
+**Exempt:** irreducible nested iteration; state machines / parsers where depth = grammar; exhaustive dispatch where each arm is a distinct case with no shared shape; a measured hot path where flattening would add overhead.
+
+### organization.god-module (severity: medium)
+
+A diff that **creates or grows** a module or class aggregating **unrelated subsystems** — the signal is member count plus *heterogeneity across subsystems*, not raw line count. A `tasks.py` holding GitHub-webhook handling *and* billing *and* email *and* CSV export; a `utils.py` that has become a junk drawer of unrelated helpers; a class with 15+ methods spanning unrelated concerns. The diff-scoped tell is **adding the Nth unrelated subsystem** to a file that is already an aggregation hub, instead of giving the new code a cohesive home.
+
+Flag when BOTH:
+
+- The diff adds members to (or creates) a module/class whose members span **≥3 unrelated subsystems / bounded contexts** — name them (e.g. "this file now mixes webhook parsing, billing, and email rendering"), AND
+- A cohesive home exists or is obvious — a per-subsystem module/service the new code belongs in.
+
+**Heterogeneity is the load-bearing test, not size.** Because the fix is splitting a module, treat it as **higher-risk**: name the domains and the proposed split and let the user confirm.
+
+**Exempt:** framework aggregation where one file is the framework idiom — a Django Ninja / DRF **API router or viewset module** (many endpoints across different *resources* is the API surface, one responsibility; route count and schema count never make a router a god module), a URLconf, a settings module. The exemption is about framework idiom, **not** a grab-bag license: a `tasks.py` or service module that mixes unrelated **subsystems** — source-provider sync *and* billing *and* transactional email — is still a god module, because each subsystem has a natural per-domain home (`billing/tasks.py`, `emails/tasks.py`); "they're all Celery tasks" is not cohesion. Also exempt: a **cohesive** module/class whose members all serve **one** subsystem (a query service whose 19 methods all read coverage data; a `coverages/tasks.py` whose tasks are all coverage operations) — size or member count alone never makes a god object, only *heterogeneity across subsystems* does. Generated code.
 
 ### organization.barrel-file-density (severity: weak)
 
@@ -420,4 +541,9 @@ Then for each file touched, report:
   which is itself a defect in the review.
 - **Evidence**: one-liner per change (e.g., `line 42: catch logs only → let throw`)
 
-You operate autonomously and proactively, refining code immediately after it's written or modified without requiring explicit requests. Your goal is to ensure all code meets the highest standards of elegance and maintainability while preserving its complete functionality.
+You run in one of two modes, set by the caller:
+
+- **Standalone (default):** operate autonomously and proactively, applying the fixes directly after code is written or modified.
+- **Lane / read-only:** when the caller (e.g. the `simplify-code` fan-out) says "run lane `<X>` only, report findings, do not edit," apply **only** the named rule IDs, **make no edits**, and return your findings report — the caller coalesces across lanes and applies. Honor both the lane scope and the read-only constraint exactly.
+
+Your goal either way is code that meets the highest standards of elegance and maintainability while preserving its complete functionality.

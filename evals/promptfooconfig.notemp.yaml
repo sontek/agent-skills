@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://promptfoo.dev/config-schema.json
+description: Detection-rule suite — variant for Bedrock models that reject `temperature`
+#
+# Newer Anthropic models on Bedrock (Opus 4.6+) reject the `temperature` field
+# outright ("temperature is deprecated for this model"), so the default config —
+# which sets temperature: 0 for determinism — errors on them. This variant is
+# identical to promptfooconfig.yaml minus `temperature`. Use it via the
+# `*-notemp` just recipes, e.g.:
+#   EVAL_BEDROCK_MODEL=us.anthropic.claude-opus-4-8 AWS_REGION=us-west-2 just eval-notemp
+providers:
+  - id: "bedrock:{{ env.EVAL_BEDROCK_MODEL or 'us.anthropic.claude-opus-4-8' }}"
+    label: bedrock
+    config:
+      region: "{{ env.AWS_REGION or 'us-east-1' }}"
+      max_tokens: 1024
+  - id: anthropic:messages:claude-opus-4-8
+    label: anthropic
+    config:
+      max_tokens: 1024
+
+prompts:
+  - file://prompt.js
+
+tests: file://tests.gen.js
+
+defaultTest:
+  options:
+    provider: "bedrock:{{ env.EVAL_BEDROCK_GRADER or 'us.anthropic.claude-haiku-4-5-20251001-v1:0' }}"

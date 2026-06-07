@@ -54,6 +54,30 @@
   "comments_over_explanatory": {
     "file": "../plugins/sontek-skills/agents/code-simplifier.md",
     "start": "### comments.over-explanatory (severity: medium)",
+    "end": "### dead-code.unused-abstraction (severity: strong)"
+  },
+
+  "dead_code_unused_abstraction": {
+    "file": "../plugins/sontek-skills/agents/code-simplifier.md",
+    "start": "### dead-code.unused-abstraction (severity: strong)",
+    "end": "### structure.inline-data-blob (severity: medium)"
+  },
+
+  "inline_data_blob": {
+    "file": "../plugins/sontek-skills/agents/code-simplifier.md",
+    "start": "### structure.inline-data-blob (severity: medium)",
+    "end": "### structure.reducible-complexity (severity: medium)"
+  },
+
+  "reducible_complexity": {
+    "file": "../plugins/sontek-skills/agents/code-simplifier.md",
+    "start": "### structure.reducible-complexity (severity: medium)",
+    "end": "### organization.god-module (severity: medium)"
+  },
+
+  "god_module": {
+    "file": "../plugins/sontek-skills/agents/code-simplifier.md",
+    "start": "### organization.god-module (severity: medium)",
     "end": "### organization.barrel-file-density (severity: weak)"
   }
 }
