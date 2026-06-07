@@ -203,6 +203,30 @@ The widening stays as an explicit cue for the focused structure lane, where the
 payoff is attention at diff scale that a small fixture can't measure; treat it as
 verified-to-fire, not independently gated.
 
+### Review lenses pulled from an external PR-review toolkit (prove-the-gap-first)
+
+A later pass mined an external PR-review toolkit's specialist agents for review
+*lenses* `code-reviewer` lacked, then gated each one the usual way — a `catch`
+that the *faithful* prior wording misses and the new rule catches, on both models.
+Two of three candidates landed:
+
+| Rule | faithful baseline (old) | live rule (current) | discriminates on |
+|---|---|---|---|
+| `comment_contradicts_code` | 3/6 both | **6/6 both** | both — baseline *sees* the lie but its gate only fired on a grown surface, so it returned CLEAN |
+| `type_invariant_enforcement` | 5/7 both | **7/7 both** | both — baseline misses a constructible-invalid instance (no constructor check, public mutable) |
+
+The third candidate, `silent_failure_extras` (over-broad catch scope; production
+fallback to fake data), was **dropped as churn**: its faithful baseline is the
+existing fail-fast rules ("best effort silent recovery," "returning fallbacks"),
+and a capable model already flags those shapes from them (Haiku 6/6, Opus 5/6 — a
+~1/12 delta). Same call as `log_assertion` / `type_dispatch`.
+
+One methodology note worth keeping: `type_invariant` first read as *no* discrimination
+(7/7 baseline) until the baseline was corrected — the first `.old.md` had been seeded
+with the rule's own concept ("make invalid states unrepresentable"), wording
+code-reviewer never actually shipped. A baseline that quietly contains the answer
+hides a real gap. The `.old.md` must be what the skill *truly said before*, nothing more.
+
 ## Provenance
 
 Fixtures are clean, self-contained reconstructions of bug *shapes* — no
