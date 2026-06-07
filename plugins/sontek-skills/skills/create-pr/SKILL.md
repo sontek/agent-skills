@@ -19,6 +19,8 @@ git status --porcelain
 
 If the output shows uncommitted changes that should be included, invoke the `commit` skill before proceeding.
 
+Deciding what "should be included" is itself a filter: **do not stage or commit local-only working documents** — agent handoff notes (`HANDOFF_*.md`, `*-HANDOFF.md`, anything containing `HANDOFF`), plan/refactor docs (`IMPLEMENTATION_PLAN_*.md`, `REFACTOR_PLAN_*.md`), or scratch notes. They help you work; they are not project artifacts. See the `commit` skill's "Staging — never commit local-only working docs" rule. The only exception is when the user explicitly asks to commit a specific one.
+
 ## Process
 
 ### Step 1: Verify Branch State

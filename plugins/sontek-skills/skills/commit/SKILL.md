@@ -25,6 +25,31 @@ git branch --show-current
 
 If still on `main` or `master`, stop — do not commit.
 
+## Staging — never commit local-only working docs
+
+Before committing, make sure you are **not** staging local-only working
+documents: agent handoff notes, plan/refactor docs, and scratch files. They live
+in your working tree (or `/tmp`) to help *you* work — they are not project
+artifacts, and committing one leaks a stale planning doc into the repo's history.
+
+Treat these as never-commit by default, matching by **intent, not a single glob**
+(the failure mode is a hand-named file like `AOE-HANDOFF.md` that no narrow
+pattern catches):
+
+- handoff docs — `HANDOFF_*.md`, `*-HANDOFF.md`, anything containing `HANDOFF`
+- plan docs — `IMPLEMENTATION_PLAN_*.md`, `REFACTOR_PLAN_*.md`, `*_PLAN_*.md`
+- scratch notes or analysis dumps you wrote to think, not to ship
+
+Prefer staging explicit paths over `git add -A` / `git add .`. If you do a broad
+add, scan `git status` first and unstage any such file before committing:
+
+```bash
+git restore --staged <file>     # staged, not yet committed
+git rm --cached <file>          # already committed — then `git commit --amend`
+```
+
+The only exception is when the user explicitly asks to commit a specific one.
+
 ## Format
 
 ```
