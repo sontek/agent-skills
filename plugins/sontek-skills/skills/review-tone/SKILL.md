@@ -27,6 +27,8 @@ cat draft.txt | python3 ${CLAUDE_PLUGIN_ROOT}/skills/review-tone/scripts/strip_e
 
 (Use the Bash tool. If `${CLAUDE_PLUGIN_ROOT}` isn't set, the script is at `skills/review-tone/scripts/strip_emdashes.py` under the plugin.) The JSON response lists `affected_sentences` — the originals that held a dash. Each now reads awkwardly because the dash was load-bearing (a pause, a parenthetical, a connector). **Rewrite each one** to flow naturally with commas, periods, semicolons, parentheses, or a restructured clause. Pick the version that sounds most like the author, not the one closest to the original shape. Do not reintroduce any em/en-dash or `--`. Verify zero remain before finishing.
 
+Running the script *is* the verification — eyeballing the text is not a substitute, and "I checked it" without having run it is not either. Run the stripper on the exact final text, and re-run it after any edit you make to that text, however small. The check is mechanical precisely so that it is never skipped or approximated.
+
 (Note: a product's own marketing/UI style guide may *want* spaced em-dashes — that's a deliberate house style for published copy, not 1:1 writing. This pass is for emails, comments, commits, and prose that should read as one person talking.)
 
 ### 2. Cut AI-tell filler

@@ -1,0 +1,9 @@
+{
+  "name": "control_plain_finding",
+  "kind": "control",
+  "finding": "[P1] Correctness. In src/orders/api.py, customer may be None when lookup_customer returns no match, leading to an AttributeError on the subsequent attribute access customer.email.",
+  "context": "def send_receipt(order):\n    customer = lookup_customer(order.customer_id)  # returns None on a miss\n    send_email(customer.email, render_receipt(order))",
+  "rubrics": [
+    "The comment clearly states the concrete consequence (customer can be None, so customer.email raises) and points at a fix (a guard or early return). It reads like a concise, actionable human review comment and leads with the problem rather than preamble. This is a plain finding with no code-vs-doc mismatch; PASS as long as the comment is correct, concrete, and actionable."
+  ]
+}
