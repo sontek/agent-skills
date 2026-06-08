@@ -1,0 +1,9 @@
+{
+  "name": "type_contract_vs_impl",
+  "kind": "mismatch-doc-right (held-out)",
+  "finding": "[P2] get_count is annotated to return int. The body returns redis.get(key) directly, which yields bytes (or None on a miss) and is never converted. The return annotation and the implementation disagree.",
+  "context": "def get_count(key: str) -> int:\n    # redis-py returns bytes; .get is None on a miss\n    return redis.get(key)",
+  "rubrics": [
+    "The comment states explicitly, within its first sentence or two, which side of the mismatch is correct and which one should change. PASS only if a reader can tell that the declared CONTRACT (the -> int annotation) is what's intended and the IMPLEMENTATION (returning raw bytes/None) is the side that should change to honor it. FAIL if the comment only describes the discrepancy or punts with 'which is correct?', or if it suggests changing the annotation to match the bytes/None return."
+  ]
+}

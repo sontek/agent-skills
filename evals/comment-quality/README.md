@@ -53,6 +53,11 @@ surface, not the invariant. Three guards are built into the scenario set:
   stale); `03` is *doc-right* (the code is the bug). A rule that just learned
   "blame the doc" passes `01`/`02` and **fails `03`**. The edit must make the
   comment name whichever side is actually correct.
+- **Held-out shapes.** `05` (help text vs a changed default, code-right) and `06`
+  (a `-> int` annotation vs a bytes-returning body, doc-right) are forms the rule
+  text was *not* written against. They test generalization: the cue should fix a
+  new shape, not just the four it was tuned on. `06` on Opus does exactly that
+  (0→3).
 - **A non-mismatch control.** `04` is a plain null-deref finding. Both variants
   should pass it; if `current` fails the control, the edit degraded ordinary
   comments and hasn't earned its place.
@@ -66,32 +71,38 @@ surface, not the invariant. Three guards are built into the scenario set:
 
 The "name which side is right" edit (`comment-style.md`) **discriminates**. With
 neutral findings (the finding states the two facts but NOT which side is right),
-the baseline hedges and the edit makes the comment commit:
+the baseline hedges with "which one is correct?" and the edit makes the comment
+commit to the side that drifted:
 
 | scenario | opus.old | opus.cur | haiku.old | haiku.cur | |
 |---|---|---|---|---|---|
-| doc_vs_code_statuscode | 3/3 | 3/3 | **0/3** | **3/3** | +1 win |
-| docstring_vs_code | **0/3** | **3/3** | 0/3 | 0/3 | +1 win |
-| spec_vs_code_bug | 0/3 | 0/3 | **0/3** | **3/3** | +1 win |
-| control_plain_finding | 3/3 | 3/3 | 3/3 | 3/3 | = (no regression) |
+| doc_vs_code_statuscode | 3/3 | 3/3 | **0/3** | **3/3** | +1 |
+| docstring_vs_code | **0/3** | **3/3** | **0/3** | **3/3** | +2 |
+| spec_vs_code_bug | **0/3** | **3/3** | **0/3** | **3/3** | +2 |
+| helptext_vs_default (held-out) | 3/3 | 3/3 | 3/3 | 3/3 | = |
+| type_contract_vs_impl (held-out) | **0/3** | **3/3** | 3/3 | 3/3 | +1 |
+| control_plain_finding | 3/3 | 3/3 | 3/3 | 3/3 | = |
 
-Three of four baseline-failing cells flipped to passing, the control held, and no
-cell regressed. The methodology mattered twice:
+**6 wins, 0 regressions.** Every baseline-failing cell flipped to passing, the
+control held, and a held-out doc-right shape the cue was *not* tuned against
+(`type_contract_vs_impl`, opus 0→3) was fixed too — evidence the rule generalizes
+rather than memorizing the four cases it was written from.
+
+Getting here took two corrections the eval forced, which are the point of having it:
 
 - **The first scenario draft showed false churn.** Findings that pre-stated the
   verdict ("the documented contract is the intended behavior") let the model copy
   the answer, so baseline and edit both passed — no headroom. Rewriting the
   findings to be *neutral* exposed the real gap.
-- **The eval refuted a follow-up tweak.** Adding an "infer the side when the
-  context tells you" clause fixed `spec/opus` (0→3) but regressed `docstring/opus`
-  (3→0) and `spec/haiku` (3→0) — it moved wins around for no net gain. It was
-  reverted. The eval earned its keep by catching an "improvement" that wasn't.
+- **The eval refuted the first fix and validated the second.** A clause that said
+  "infer the side when context tells you, and reserve an open question for genuine
+  ambiguity" *regressed* `docstring/opus` and `spec/haiku` (3→0): the "reserve an
+  open question" escape hatch licensed more hedging. Replacing it with a directional
+  rule — *a contract/spec is authoritative over violating code; a deliberate change
+  is authoritative over an unupdated doc; don't punt with "which is correct?"* — and
+  no escape hatch is what produced the clean 6/0.
 
-Not yet gated cleanly:
-- **`spec_vs_code_bug` on Opus** stays 0/3: a published-contract-vs-new-code case
-  where Opus poses it as an open question rather than committing. That is a
-  defensible boundary (genuine ambiguity), and forcing a commit there cost more
-  elsewhere (see the reverted clause). Left as-is.
+Not gated cleanly:
 - **The observable-effect rubric (#4)** is too noisy to call: the Haiku grader
   returned a self-contradictory verdict (its reason said the comment *did* lead
   with the observable effect, then failed it). Kept as guidance, not claimed as a
