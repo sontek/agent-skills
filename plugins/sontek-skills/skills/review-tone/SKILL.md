@@ -41,7 +41,7 @@ Drop tag/label prefixes (`blocking —`, `suggestion —`, `nit —`, `P1`, `Sec
 
 ### 4. Don't editorialize or narrate posture
 
-Cut phrases that narrate the act of writing instead of saying the thing: "worth a conscious call", "merits a conscious sign-off", "mostly flagging", "this is purely about X discipline", "the default quietly changed", "just flagging since". State the point and its consequence and let the prose carry the weight.
+Cut phrases that narrate the act of writing instead of saying the thing: "worth a conscious call", "merits a conscious sign-off", "mostly flagging", "this is purely about X discipline", "the default quietly changed", "just flagging since". Also cut phrases that hand the reader a decision they obviously already own: "the approach is up to you", "I'll leave that to you", "your call", "feel free to". When you've raised a question, the reader knows the answer is theirs — stating it is filler. State the point and its consequence and let the prose carry the weight.
 
 ### 5. Plain words over jargon
 
