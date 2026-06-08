@@ -65,6 +65,37 @@ view: _ensure
 validate: _ensure
     cd {{evals}} && mise exec -- {{promptfoo}} validate
 
+# --- Comment-quality A/B (review-pr comment-style) -------------------------
+# A separate suite that asks the model to WRITE a PR comment and grades it,
+# rather than detecting a bug. A/B the live comment-style.md ("after") against
+# the frozen variants/comment-style.baseline.md ("before"). See
+# evals/comment-quality/README.md.
+
+cq := "comment-quality/promptfooconfig.yaml"
+
+# Generate + list the comment-quality cases (no tokens spent).
+gen-cq:
+    cd {{evals}}/comment-quality && mise exec -- node tests.gen.js
+
+# Show which guidance file each variant binds to (live vs frozen baseline).
+show-cq:
+    cd {{evals}}/comment-quality && mise exec -- node tests.gen.js --show
+
+# Validate the comment-quality config (no API calls).
+validate-cq: _ensure
+    cd {{evals}} && mise exec -- {{promptfoo}} validate -c {{cq}}
+
+# Run the comment-quality suite against the CURRENT (live) comment-style wording.
+eval-cq provider="bedrock": _ensure
+    cd {{evals}} && mise exec -- {{promptfoo}} eval -c {{cq}} --filter-providers {{provider}}
+
+# Run it against the frozen pre-edit baseline ("before").
+eval-cq-old provider="bedrock": _ensure
+    cd {{evals}} && RULE_VARIANT=old mise exec -- {{promptfoo}} eval -c {{cq}} --filter-providers {{provider}}
+
+# A/B both wordings back to back (baseline "before", then live "after").
+ab-cq provider="bedrock": (eval-cq-old provider) (eval-cq provider)
+
 # Behavioral skill tests — run a skill end-to-end via headless `claude -p` and
 # check it DISCRIMINATES from baseline (skill on/off, or edit before/after).
 # Complements the promptfoo suite (detection rules); covers triggering + procedure.

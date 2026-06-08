@@ -1,0 +1,9 @@
+{
+  "name": "docstring_vs_code",
+  "kind": "mismatch-code-right",
+  "finding": "[P2] The docstring on list_active says 'Results are returned newest-first.' The query orders by created_at.asc() (oldest-first), changed from .desc() in this PR. The docstring and the query disagree about ordering.",
+  "context": "def list_active(session):\n    \"\"\"Return all active jobs. Results are returned newest-first.\"\"\"\n    return (\n        session.query(Job)\n        .filter(Job.active.is_(True))\n        .order_by(Job.created_at.asc())  # changed this PR: was .desc()\n        .all()\n    )",
+  "rubrics": [
+    "The comment states explicitly, within its first sentence or two, WHICH side of the mismatch is correct and which one should change. PASS only if a reader can tell without guessing that the CODE (the new ascending/oldest-first ordering) is the intended behavior and the DOCSTRING is the stale thing to update. FAIL if the comment only describes the discrepancy neutrally without committing to which side is right, or if it suggests reverting the code to newest-first."
+  ]
+}

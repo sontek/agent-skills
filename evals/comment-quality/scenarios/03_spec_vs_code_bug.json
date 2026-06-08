@@ -1,0 +1,9 @@
+{
+  "name": "spec_vs_code_bug",
+  "kind": "mismatch-doc-right",
+  "finding": "[P2] docs/api/widgets.md documents that GET /widgets/{id} returns 404 when no widget with that id exists. The handler in this PR returns 200 with `{\"widget\": null}` on a miss. The documented contract and the handler disagree about the missing-widget case.",
+  "context": "# docs/api/widgets.md\n`GET /widgets/{id}` — returns the widget, or **404** if no widget with that id exists.\n\n# views.py (this PR)\ndef get_widget(request, widget_id):\n    widget = Widget.objects.filter(id=widget_id).first()\n    return JsonResponse({\"widget\": serialize(widget) if widget else None})  # 200 even on miss",
+  "rubrics": [
+    "The comment states explicitly, within its first sentence or two, WHICH side of the mismatch is correct and which one should change. PASS only if a reader can tell without guessing that the DOCUMENTED contract (404 on a missing widget) is the intended behavior and the CODE (the handler returning 200 with null) is the side that should change to match it. FAIL if the comment only describes the discrepancy neutrally, or if it suggests changing the documentation to match the 200-with-null behavior."
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "doc_vs_code_statuscode",
+  "kind": "mismatch-code-right",
+  "finding": "[P2] docs/runbooks/rds.md:99 instructs the on-call responder that 'the final JSON response in the stream will show \"statusCode\": 500 on failure.' In the handler, the except block re-raises the exception and the only `return` statement produces `\"statusCode\": 200`. The runbook step and the handler disagree about what a failure looks like in the logs.",
+  "context": "# docs/runbooks/rds.md (line 99)\n4. Look for `ERROR` lines. The final JSON response in the stream will show `\"statusCode\": 500` on failure.\n\n# rotate_rds_secrets.py (handler, current)\n        return {\n            \"statusCode\": 200,\n            \"body\": json.dumps({\"step\": step, \"rotated\": rotated}),\n        }\n    except Exception as e:\n        # Re-raise so the invocation registers a Lambda FunctionError: this fails\n        # the Terraform aws_lambda_invocation and trips the rotation alarm.\n        log.error(f\"Rotation failed: {e}\", exc_info=True)\n        raise",
+  "rubrics": [
+    "The comment states explicitly, within its first sentence or two, WHICH side of the mismatch is correct and which one should change. PASS only if a reader can tell without guessing that the CODE behavior (raising / not returning a 500 body) is correct/intended and the DOCUMENTATION (the runbook line) is the thing to update. FAIL if the comment merely describes the discrepancy neutrally (e.g. 'the runbook says 500 but the code raises') without committing to which side is right, or if it implies the code should be changed to return 500 again.",
+    "The comment describes the OBSERVABLE failure behavior an operator would see (a traceback / a failed invocation / no statusCode body) rather than primarily narrating the internal runtime mechanism (e.g. leading with 'the handler re-raises to register a FunctionError'). PASS if the operator-visible effect is the main explanation. FAIL if the comment's core explanation is the implementation mechanism rather than what the responder observes."
+  ]
+}
