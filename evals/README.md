@@ -276,3 +276,11 @@ prove a rule generalizes instead of memorizing one stack's idiom.
 4. (Optional) Add `rules/<rule>.old.md` to A/B against wording you're replacing.
 5. `just gen` to confirm the cases are picked up, `just show` to confirm the
    slice binds to the right live text, then `just eval`.
+
+**Never state the verdict in a fixture.** Describe what the code *does* ("scatter
+has no stacking concept"), never the answer the model should reach — no "CLEAN",
+"FLAGGED", "must not flag", or "this is a bug" in a comment or docstring. A fixture
+that names its own verdict lets the model copy it instead of reasoning, which
+silently props up the safe-case false-positive guard and can hide a real over-flag.
+`just gen` enforces this: it fails on any fixture containing the verbatim verdict
+tokens `CLEAN` / `FLAGGED` (the same check runs in CI).

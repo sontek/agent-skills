@@ -96,9 +96,38 @@ function generateTests() {
   return tests;
 }
 
+// Guard against verdict leaks: a fixture must never state the answer the model is
+// supposed to reach. A comment that says "CLEAN" or "FLAGGED" (the literal output
+// verdict) lets the model copy it instead of reasoning to it — which silently props
+// up the safe-case false-positive guard and can mask a real over-flag (this bit the
+// `default_ignores_explicit_null` safe set: a hidden Haiku FP only surfaced once the
+// "CLEAN" comment was removed). Scans every fixture for the verbatim uppercase
+// verdict tokens; `just gen` / CI fail on a hit. Describe the code's behaviour, not
+// the expected verdict (see README "Adding a rule").
+function checkVerdictLeaks() {
+  const VERDICT = /\b(CLEAN|FLAGGED)\b/;
+  const leaks = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        walk(p);
+        continue;
+      }
+      fs.readFileSync(p, "utf8")
+        .split("\n")
+        .forEach((line, i) => {
+          if (VERDICT.test(line)) leaks.push(`${path.relative(ROOT, p)}:${i + 1}: ${line.trim()}`);
+        });
+    }
+  };
+  walk(FIXTURES);
+  return leaks;
+}
+
 module.exports = generateTests;
 
-// `node tests.gen.js`          -> counts (no tokens spent)
+// `node tests.gen.js`          -> counts + verdict-leak check (no tokens spent)
 // `node tests.gen.js --show`   -> print the sliced live rule text to eyeball the binding
 if (require.main === module) {
   if (process.argv[2] === "--show") {
@@ -118,4 +147,15 @@ if (require.main === module) {
   console.log(`variant=${VARIANT}  total=${tests.length}`);
   console.log("by rule:", byRule);
   console.log("by language:", byLang);
+
+  const leaks = checkVerdictLeaks();
+  if (leaks.length) {
+    console.error(
+      "\nVERDICT LEAK — a fixture states the output verdict (CLEAN/FLAGGED) in its text,\n" +
+        "letting the model copy the answer instead of reasoning to it. Reword to describe\n" +
+        "the code's behaviour, not the expected verdict (see README \"Adding a rule\"):",
+    );
+    for (const l of leaks) console.error("  " + l);
+    process.exit(1);
+  }
 }

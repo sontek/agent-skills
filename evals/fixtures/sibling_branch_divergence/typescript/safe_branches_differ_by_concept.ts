@@ -1,8 +1,8 @@
-// FP guard: two sibling chart-body renderers that legitimately differ. A bar chart
-// has a stacking concept; a scatter chart does not — it has point sizing instead.
-// Each branch reads the spec field that applies to it. No dropped shared field, so
-// this must stay CLEAN (the validation gate's "field must be applicable to the
-// omitting branch" exemption). A naive "branches differ => flag" rule fails here.
+// Two sibling chart-body renderers that legitimately differ. A bar chart has a
+// stacking concept; a scatter chart does not — it has point sizing instead. Each
+// branch reads the spec field that applies to it, so there is no dropped shared
+// field (the validation gate's "field must be applicable to the omitting branch"
+// exemption). A naive "branches differ => flag" rule would wrongly trip here.
 type Series = { id: string; points: number[] };
 type ChartSpec = { stacked?: boolean; pointSize?: number; series: Series[] };
 
