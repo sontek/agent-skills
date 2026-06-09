@@ -250,6 +250,42 @@ lesson:
   cross-path rule as an explicit **procedure** ("enumerate branches → parity table →
   flag the blank cell"), which turned inconsistent firing (2/3) reproducible (3/3).
 
+### A default that fills absent-but-not-explicit-null (`default_ignores_explicit_null`)
+
+From the same bot-miss audit: a reviewer cleared `z.array(...).default([])` on a
+resume frame as "null-resilient," but `.default()` replaces only `undefined`, so an
+explicit wire `null` throws and drops the whole restored conversation (Python's
+`dict.get(k, fallback)` has the identical absent-vs-present-null gap). The rule
+names the absent-only fallback shapes and gates on **reachability** — flag only when
+the source can actually send explicit `null`.
+
+Gating mirrored `sibling_branch_divergence`:
+
+- **Unit suite: does NOT discriminate.** A generic "handle nulls" baseline catches
+  the `.default([])` / `.get()` cases just as well once the snippet annotates the
+  field as nullable right beside the fallback. Unit cases are a fire-check + the
+  **reachability FP guard** (a `.default()` on a field that is only ever *omitted*,
+  never null, must stay CLEAN — holds on Opus & Haiku), not the gate.
+- **Faithful end-to-end IS the gate, and the reachability gate is the point.** On
+  the real PR diff the base reviewer **confidently mis-cleared** the hazard ("null
+  resilience is sound") 3/3; with the rule it flagged it 3/3 — and *correctly
+  conditionalized* on the unknown backend fact ("fires only if the backend emits
+  `elements: null`; confirm against the serializer; the zod mechanism is certain
+  regardless"). The rule's value is flipping a confident wrong-clear into a
+  correctly-hedged flag that asks the author the right question, not asserting an
+  unverifiable consequence.
+- **Not over-fit to the two repo idioms.** The rule names Zod `.default()` and
+  Python `.get()` (what the repo uses), so a Go fixture was added to check it didn't
+  bind to those tokens: a `val, ok := m[key]` map fallback that fills absent-only is
+  flagged on both models, its nil-checked sibling stays clean. The model generalizes
+  from the invariant, not the named idioms.
+- **A verdict-leak in the safe fixtures was masking a real false positive.** The
+  safe-case comments originally said "CLEAN," echoing the output verdict. Removing
+  that exposed a Haiku false positive on a `.get()` result that *was* correctly
+  null-checked (`is not None`). The fix was to make the validation gate explicitly
+  exempt a subsequently null-checked result; both models then hold 7/7. Lesson:
+  never let a fixture comment state the verdict — it silently props up the FP guard.
+
 ## Provenance
 
 Fixtures are clean, self-contained reconstructions of bug *shapes* — no

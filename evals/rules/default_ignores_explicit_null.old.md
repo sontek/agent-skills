@@ -1,0 +1,1 @@
+- **Null handling.** Check that values which can be null or missing are handled before use, and flag a missing null/None check that could cause a crash or a wrong result downstream.

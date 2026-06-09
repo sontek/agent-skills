@@ -19,6 +19,11 @@
   "sibling_branch_divergence": {
     "file": "../plugins/sontek-skills/agents/code-reviewer.md",
     "start": "- **Sibling/parallel branch parity — enumerate the branches and compare",
+    "end": "- **Default/fallback that fills *absent* but not *explicit null*.**"
+  },
+  "default_ignores_explicit_null": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Default/fallback that fills *absent* but not *explicit null*.**",
     "end": "- **Deadline/timeout computed before an unaccounted handoff delay.**"
   },
   "deadline_before_handoff": {
