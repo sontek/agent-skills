@@ -29,9 +29,9 @@ hunks. Almost every gap below is a facet of that one root cause.
 | 4a | **Retry/timeout budget** — per-attempt vs whole-call budget, missing budget-derived timeout, liveness bound omits a backoff term | ~4 | review-perf / code-reviewer | **existing `deadline_before_handoff` under-generalized** | platform#3769, #3762, #3774 |
 | 4b | **First-record schema inference** | ~1 | code-reviewer | **existing `first_record_schema` missed it** | platform#3793 |
 | 4c | **Cleanup skipped by non-local exit (shell)** | ~1 | code-reviewer | **existing `cleanup_nonlocal_exit` is Py/Go/TS-only** | platform#3818 |
-| 5 | **Config default violates the change's own safety constraint** — ALB idle-timeout default below the SQL ceiling; worker clamp ordering | ~3 | code-reviewer / iac | no rule | platform#3769, #3818 |
-| 6 | **Theme-migration completeness / WCAG contrast** (FE) — background semanticized, foreground left hardcoded; shallow-merge clobbers nested style | ~4 | code-reviewer | no rule (niche) | platform-ui#3128 |
-| 7 | **Type-coercion / lenient-parser edge** — `?? 0` turns missing into zero, `Intl` percent default truncates | ~3 | code-reviewer | partial | platform-ui#3098, #3100 |
+| 5 | **Config default violates the change's own safety constraint** — ALB idle-timeout default below the SQL ceiling; worker clamp ordering | ~3 | code-reviewer / iac | **REFUTED — already covered** | platform#3769, #3818 |
+| 6 | **Theme-migration completeness / WCAG contrast** (FE) — background semanticized, foreground left hardcoded; shallow-merge clobbers nested style | ~4 | code-reviewer | **REFUTED — already covered** | platform-ui#3128 |
+| 7 | **Type-coercion / lenient-parser edge** — `?? 0` turns missing into zero, `Intl` percent default truncates | ~3 | code-reviewer | **REFUTED — already covered** | platform-ui#3098, #3100 |
 
 ## Prioritized plan
 
@@ -142,12 +142,39 @@ Same call as the over-fit audit's refuted hypotheses — do not build what the r
 already does. (`#3801` mismatched-XML-tags and `#3731` schema-field-description are
 single-instance facets not separately pursued.)
 
-## Audit status
+## Gap 5 / 6 / 7 result (batched screen — all REFUTED)
 
-Real rules shipped: **`sibling_branch_divergence`** (Gap 1), **`default_ignores_explicit_null`**
-(Gap 2), **`deadline_before_handoff`** widened (Gap 4a). Refuted as already-covered:
-Gap 3, Gap 4b/4c. The recurring lesson: the live reviewer is stronger than the raw
-bot-miss list implies, so each gap must be proven against the live reviewer before a
-rule is written. Remaining un-screened: Gap 5 (config-default-violates-constraint),
-Gap 6 (FE theme/contrast), Gap 7 (type-coercion edges) — lower frequency; screen the
-same way before building.
+The last three were screened together against the live reviewer on their real diffs.
+All three are already covered; no rule added (forcing one would be churn):
+
+- **Gap 5 (config-default vs constraint), platform#3769 `ec6a795`:** the reviewer
+  reasoned about the IaC default directly ("module var defaults to 60, the single
+  caller sets 240, 240 > 180 is correct headroom") and called the default benign for
+  sound reasons — *and* found a deeper related bug the bot missed
+  (`retry-wall-clock-may-exceed-alb-idle-timeout`: 2 retries × 180s > the 240s idle
+  timeout). The bot's "raise the module default" was defensive hardening, reasonably
+  deprioritized.
+- **Gap 6 (WCAG contrast), platform-ui#3128 `be45cf4`:** caught 2/2, P2 CONFIRMED at
+  both sites — the reviewer **computes the contrast ratios** (2.45:1, 3.32:1 with RGB
+  values), cites WCAG AA, flags the incomplete token migration, and notes the sibling
+  parity divergence. Stronger than the bot.
+- **Gap 7 (lenient-parser coercion), platform-ui#3098 `3278b6f`:** caught the
+  `new Date(true)` boolean-coercion bug with the exact fix (`guard typeof === "string"`)
+  — but as a P3 surfaced 1/2 in a 2.5k-line diff. The reviewer *knows* the bug; the
+  inconsistency is severity/surfacing noise, not a wording gap, so a rule is churn.
+
+## Audit status — complete
+
+| Outcome | Gaps |
+|---|---|
+| **Rule shipped** | Gap 1 `sibling_branch_divergence`, Gap 2 `default_ignores_explicit_null`, Gap 4a `deadline_before_handoff` (widened) |
+| **Refuted — already covered** | Gap 3, Gap 4b, Gap 4c, Gap 5, Gap 6, Gap 7 |
+
+Three real rules out of nine candidate gaps; the other six the live reviewer already
+handles, several **better than the bots** (Gap 3 cited the ORM unique index; Gap 5
+found a deeper timeout bug; Gap 6 computed contrast ratios). The throughline: the raw
+bot-miss list over-counts gaps because many catches were diff-scale/situational or
+predate reviewer improvements — so every gap was proven against the **live reviewer at
+faithful scope** before a rule was written, and prove-the-gap-first stopped six churn
+rules from shipping. Also added a CI guard (`tests.gen.js`) against fixtures that echo
+the verdict. Audit closed.
