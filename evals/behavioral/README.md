@@ -141,6 +141,40 @@ The prompt for all four is deliberately neutral — it never names Terraform, Ia
 SQL, perf, or any reviewer — so reviewer selection is driven by the skill text, not
 the prompt. That neutrality is what makes the discrimination honest.
 
+### review-code DRY-extraction guards
+
+A follow-up moved the reviewer-selection table out of both skills' bodies into one
+shared `review-code/references/reviewer-selection.md` that both read, so the roster
+can't drift again (the root-cause fix for the drift above). The risk of that
+extraction is behavioral: does the model still *load* the reference and select
+correctly, rather than dispatching only the always-on pair? Three single-arm guards
+against the live `review-code` confirm it does, mirroring the review-pr fixtures
+(review-code's `branch` mode diffs the same range):
+
+- **`review-code-iac`** — Terraform diff → `iac-reviewer` dispatched. 2/2.
+- **`review-code-sql`** — raw-SQL diff → `sql-reviewer` dispatched. 2/2.
+- **`review-code-perf`** — FastAPI diff → `perf-reviewer` dispatched. 2/2.
+
+Together with the re-run review-pr guards (also 2/2 post-extraction), this proves
+both skills still select every specialist through the shared reference.
+
+### review-design
+
+- **`review-design`** (skill on/off) — *proven, 3/3.* The new `review-design` skill
+  routes a module through the `senior-engineer` judgment agent — the first wiring of
+  senior-engineer to code scope (it was plan-only). ON (plugin loaded) dispatches
+  senior-engineer over the module; OFF (no plugin) the base model reviews the module
+  inline and dispatches no judgment agent. Smoke-level discrimination, same class as
+  `simplify-fanout`: it proves the skill does the new thing (route code to
+  senior-engineer), not that the verdict is correct.
+
+  *Methodology note the eval forced:* the first cut used a leading prompt
+  ("...dispatching the judgment agent(s) it selects") and **failed to discriminate**
+  — the no-skill OFF arm improvised its own senior-engineer dispatch (OFF 1/2).
+  Stripping the prompt to the bare "review the design of src/billing" — so only the
+  skill body, not the prompt, can cause a dispatch — produced a clean 3/3 both arms.
+  Same lesson as the roster guards: the prompt must not do the skill's job.
+
 ### Designed, not yet implemented
 
 - **`fence`** (code-simplifier, edit before/after) — does adding a

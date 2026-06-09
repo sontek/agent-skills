@@ -236,6 +236,59 @@ def setup_smalldiff_pr_repo(proj: Path) -> None:
     return sum(values) / len(values)
 ''', "add average helper")
 
+def setup_module_repo(proj: Path) -> None:
+    """A small committed module with an obvious cohesion/coupling smell.
+
+    review-design resolves scope via `git ls-files <dir>`, so the module must be
+    committed. The god-class (invoicing + tax + email + PDF + persistence in one
+    object) and the pass-through wrapper give the senior-engineer agent a real
+    architectural target; the spec only checks the agent was *dispatched*, but a
+    believable smell keeps the fixture honest for any future output-grading prop.
+    """
+    _init_repo(proj)
+    (proj / "src" / "billing").mkdir(parents=True)
+    (proj / "src" / "billing" / "__init__.py").write_text("")
+    (proj / "src" / "billing" / "manager.py").write_text('''import smtplib
+
+
+class BillingManager:
+    """Owns invoicing, tax, email, PDF rendering, and persistence."""
+
+    def __init__(self, db, smtp_host):
+        self.db = db
+        self.smtp = smtplib.SMTP(smtp_host)
+
+    def create_invoice(self, org_id, line_items):
+        subtotal = sum(i["amount"] for i in line_items)
+        tax = self._calc_tax(org_id, subtotal)
+        invoice = {"org": org_id, "subtotal": subtotal, "tax": tax, "items": line_items}
+        self.db.execute("INSERT INTO invoices (org, total) VALUES (?, ?)",
+                        (org_id, subtotal + tax))
+        pdf = self._render_pdf(invoice)
+        self._email_invoice(org_id, pdf)
+        return invoice
+
+    def _calc_tax(self, org_id, subtotal):
+        rate = self.db.execute("SELECT rate FROM tax WHERE org = ?", (org_id,)).fetchone()
+        return subtotal * (rate[0] if rate else 0.0)
+
+    def _render_pdf(self, invoice):
+        return f"%PDF-1.4 invoice for {invoice['org']} total {invoice['subtotal']}"
+
+    def _email_invoice(self, org_id, pdf):
+        addr = self.db.execute("SELECT email FROM orgs WHERE id = ?", (org_id,)).fetchone()
+        self.smtp.sendmail("billing@co", addr[0], pdf)
+''')
+    (proj / "src" / "billing" / "utils.py").write_text('''from .manager import BillingManager
+
+
+def make_invoice(db, smtp_host, org_id, line_items):
+    # pass-through wrapper that adds nothing
+    return BillingManager(db, smtp_host).create_invoice(org_id, line_items)
+''')
+    _git(proj, "add", "-A")
+    _git(proj, "commit", "-q", "-m", "billing module")
+
 _TRAILER = re.compile(r"Co-Authored-By|Generated with|🤖", re.I)
 
 def prop_commit_clean(t: Transcript, proj: Path) -> bool:
@@ -300,16 +353,29 @@ def _subagent_dispatches(t: Transcript, needle: str) -> int:
 def _reviewer_prop(needle: str):
     return lambda t, proj: _subagent_dispatches(t, needle) >= 1
 
-def _reviewer_evidence(needle: str):
+def _reviewer_evidence(needle: str, skill: str = "review-pr"):
     return lambda t, proj: (f"{needle} dispatches={_subagent_dispatches(t, needle)}; "
-                            f"review-pr fired={t.skill_fired('review-pr')}")
+                            f"{skill} fired={t.skill_fired(skill)}")
 
 prop_iac_reviewer_dispatched = _reviewer_prop("iac-reviewer")
-evidence_iac = _reviewer_evidence("iac-reviewer")
 prop_sql_reviewer_dispatched = _reviewer_prop("sql-reviewer")
-evidence_sql = _reviewer_evidence("sql-reviewer")
 prop_perf_reviewer_dispatched = _reviewer_prop("perf-reviewer")
+# review-pr roster guards
+evidence_iac = _reviewer_evidence("iac-reviewer")
+evidence_sql = _reviewer_evidence("sql-reviewer")
 evidence_perf = _reviewer_evidence("perf-reviewer")
+# review-code roster guards — same props, "review-code" in the evidence string. These
+# verify the DRY extraction: review-code still selects each specialist after its step-2
+# table moved into the shared reviewer-selection reference.
+evidence_iac_rc = _reviewer_evidence("iac-reviewer", "review-code")
+evidence_sql_rc = _reviewer_evidence("sql-reviewer", "review-code")
+evidence_perf_rc = _reviewer_evidence("perf-reviewer", "review-code")
+# review-design: dispatches the senior-engineer judgment agent over a module
+prop_senior_engineer_dispatched = _reviewer_prop("senior-engineer")
+
+def evidence_design(t: Transcript, proj: Path) -> str:
+    return (f"senior-engineer dispatches={_subagent_dispatches(t, 'senior-engineer')}; "
+            f"review-design fired={t.skill_fired('review-design')}")
 
 def prop_gapsweep(t: Transcript, proj: Path) -> bool:
     """The recall sweep dispatches a SECOND code-reviewer after coalesce."""
@@ -371,6 +437,24 @@ _REVIEW_PR_PROMPT = (
     "main branch. Follow the skill's process exactly, including dispatching the "
     "reviewer sub-agents it selects. Stop once you've gathered the findings — you "
     "do not need to present or post anything."
+)
+
+# review-code variant of the neutral prompt — same shape, names review-code so the
+# DRY-extraction guards exercise that skill's selection path.
+_REVIEW_CODE_PROMPT = (
+    "Use the review-code skill to review the changes on this branch against the "
+    "main branch. Follow the skill's process exactly, including dispatching the "
+    "reviewer sub-agents it selects. Stop once you've gathered the findings."
+)
+
+# Force-invoke review-design over the module. Deliberately MINIMAL: it must NOT tell
+# the model to dispatch anything (an earlier "dispatching the judgment agent(s) it
+# selects" phrasing nudged the no-skill OFF arm into improvising a senior-engineer
+# dispatch, killing discrimination). Whether senior-engineer is dispatched must come
+# from the skill body alone — on the OFF arm the base model just reviews inline.
+_REVIEW_DESIGN_PROMPT = (
+    "Use the review-design skill to review the design of the src/billing module in "
+    "this repository."
 )
 
 # The roster rows (iac / sql / perf) and the recall gap-sweep that the edit-A/Bs
@@ -495,6 +579,65 @@ SPECS: dict[str, TestSpec] = {
         expect_on=True,
         max_turns=20,
         evidence=evidence_gapsweep,
+    ),
+    # DRY-extraction guards: review-code's step-2 table moved into the shared
+    # reviewer-selection reference that review-pr also reads. These confirm review-code
+    # STILL selects each specialist after the move (it now has to load the reference to
+    # find the trigger→agent mapping). Single-arm against the live skill; reuse the
+    # review-pr fixtures since review-code's branch mode diffs the same range.
+    "review-code-iac": TestSpec(
+        name="review-code-iac",
+        doc="live review-code dispatches iac-reviewer on a Terraform diff after the table moved to the shared reference",
+        setup=setup_terraform_pr_repo,
+        prop=prop_iac_reviewer_dispatched,
+        prop_desc="iac-reviewer sub-agent dispatched",
+        arm_on=Arm("live-review-code", _REVIEW_CODE_PROMPT, plugin=PLUGIN_DIR, disable_global=True),
+        arm_off=None,
+        expect_on=True,
+        max_turns=12,
+        evidence=evidence_iac_rc,
+    ),
+    "review-code-sql": TestSpec(
+        name="review-code-sql",
+        doc="live review-code dispatches sql-reviewer on a raw-SQL diff after the table moved to the shared reference",
+        setup=setup_rawsql_pr_repo,
+        prop=prop_sql_reviewer_dispatched,
+        prop_desc="sql-reviewer sub-agent dispatched",
+        arm_on=Arm("live-review-code", _REVIEW_CODE_PROMPT, plugin=PLUGIN_DIR, disable_global=True),
+        arm_off=None,
+        expect_on=True,
+        max_turns=12,
+        evidence=evidence_sql_rc,
+    ),
+    "review-code-perf": TestSpec(
+        name="review-code-perf",
+        doc="live review-code dispatches perf-reviewer on a FastAPI diff after the table moved to the shared reference",
+        setup=setup_apptier_pr_repo,
+        prop=prop_perf_reviewer_dispatched,
+        prop_desc="perf-reviewer sub-agent dispatched",
+        arm_on=Arm("live-review-code", _REVIEW_CODE_PROMPT, plugin=PLUGIN_DIR, disable_global=True),
+        arm_off=None,
+        expect_on=True,
+        max_turns=12,
+        evidence=evidence_perf_rc,
+    ),
+    # New skill: review-design routes a module through the senior-engineer judgment
+    # agent — the first time senior-engineer is wired to CODE scope (it was plan-only).
+    # Skill on/off A/B: ON (plugin loaded) dispatches senior-engineer; OFF (no plugin)
+    # the base model reviews directly and can't dispatch the plugin agent. Smoke-level
+    # discrimination, same class as simplify-fanout — it proves the skill does the new
+    # thing (route code to senior-engineer), not that the verdict is correct.
+    "review-design": TestSpec(
+        name="review-design",
+        doc="review-design dispatches senior-engineer over a module (skill on vs off)",
+        setup=setup_module_repo,
+        prop=prop_senior_engineer_dispatched,
+        prop_desc="senior-engineer sub-agent dispatched over the module",
+        arm_on=Arm("skill-ON", _REVIEW_DESIGN_PROMPT, plugin=PLUGIN_DIR, disable_global=True),
+        arm_off=Arm("skill-OFF", _REVIEW_DESIGN_PROMPT, plugin=None, disable_global=True),
+        expect_on=True, expect_off=False,
+        max_turns=10,
+        evidence=evidence_design,
     ),
 }
 
