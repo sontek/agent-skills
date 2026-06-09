@@ -109,6 +109,37 @@ results if ignored:
   probe makes Claude ask *"if you didn't have to justify this… what would you
   actually want?"* on a sophistication-signaling prompt; current clarify doesn't.
   Discriminates 2/2.
+- **`simplify-fanout`** (skill on/off) — *proven.* simplify-code dispatches ≥4
+  read-only code-simplifier lane sub-agents; the base model (no plugin) edits
+  directly and dispatches none. Discriminates 2/2.
+
+### review-pr reviewer-roster guards
+
+These four caught a real drift: review-pr's reviewer-selection table had fallen
+behind review-code's — it omitted the `perf-reviewer`, `iac-reviewer`, and
+`sql-reviewer` rows and the post-coalesce recall gap-sweep. Each was first run as
+an **edit before/after** A/B (off = the live skill *without* the rule = the red
+baseline; on = the same skill *plus* the rule) and **discriminated 2/2** — in every
+case the live skill *fired* but dispatched the specialist zero times, and the model
+did **not** reach for the agent on its own, refuting the churn hypothesis the way
+the over-fit audit refuted `log_assertion` / `type_dispatch`. The rules now ship in
+`review-pr/SKILL.md`, so these are **single-arm regression guards against the live
+skill** (re-verified green 2/2 on the shipped table-row / coalesce wording, which is
+terser than the probe that proved the mechanism — proving the probe worked is not
+proving the shipped form works):
+
+- **`review-pr-iac`** — Terraform-only diff → `iac-reviewer` dispatched. 2/2.
+- **`review-pr-sql`** — raw-SQL (sqlalchemy `text(`) diff → `sql-reviewer` dispatched. 2/2.
+- **`review-pr-perf`** — non-Django FastAPI diff → `perf-reviewer` dispatched. 2/2.
+- **`review-pr-gapsweep`** — a *second* `code-reviewer` runs after coalesce as a
+  recall sweep (≥2 dispatches vs 1). Unlike the roster rows this was a deliberate
+  product call, not pure drift: propose-only review-pr is precision-biased, and the
+  sweep is a recall lever — adopted because its downstream `finding-verifier` +
+  value-triage filter the extra candidates before they reach a comment. 2/2.
+
+The prompt for all four is deliberately neutral — it never names Terraform, IaC,
+SQL, perf, or any reviewer — so reviewer selection is driven by the skill text, not
+the prompt. That neutrality is what makes the discrimination honest.
 
 ### Designed, not yet implemented
 
