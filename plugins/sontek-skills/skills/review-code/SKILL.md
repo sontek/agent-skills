@@ -37,17 +37,7 @@ Pick one before invoking. If the caller didn't specify, default to `branch`.
 
 ### 2. Pick reviewers from the changed files
 
-Always dispatch **`code-reviewer`** and **`security-auditor`**. Add specialists only when the changed files touch their domain — running one with nothing in scope just adds noise:
-
-| Signal in changed files | Add agent |
-|---|---|
-| Django code (`models.py`, `views.py`, `urls.py`, DRF, `from django`) | `django-access-reviewer`, `django-perf-reviewer` |
-| Application-tier code in any backend stack — Flask, FastAPI, Starlette, **Django views/services/tasks/workers**, Go `net/http` / gin / echo, Node express / fastify, plain Python services/workers | `perf-reviewer` |
-| `.github/workflows/*.yml` | `gha-security-reviewer` |
-| IaC (`*.tf`, `*.tofu`, `infra/`) | `iac-reviewer` |
-| DB layer (migrations, raw SQL, `import sqlalchemy`/`sqlmodel`, `cursor.execute`/`text(`) | `sql-reviewer` |
-
-`sql-reviewer` and `django-perf-reviewer` can both match a Django-ORM diff that also touches raw SQL; dispatch both — the coalesce step (5) deduplicates and treats agreement as corroboration. The same applies to `perf-reviewer` co-firing with `django-perf-reviewer` or `sql-reviewer` — including on Django code, where all three may run. `perf-reviewer` leads with the application tier (algorithmic / async / batching / caching) but also surfaces the **language-agnostic** shapes that cross into the data layer — a per-item round-trip in a loop (including DB writes), an unbounded fetch into memory — naming the generic problem and fix; the data-layer reviewers own the exact idiom (`bulk_update` vs `update`, index DDL, locking). When they land the same finding, dedup collapses it and treats the agreement as corroboration. Don't suppress `perf-reviewer` on Django code to avoid the overlap — the overlap is the backstop.
+Select reviewers per the shared rules in [references/reviewer-selection.md](references/reviewer-selection.md) — the single source of truth that `review-pr` reads from too, so the two skills' rosters can't drift. Always dispatch **`code-reviewer`** and **`security-auditor`**; add a specialist (`perf-reviewer`, `iac-reviewer`, `sql-reviewer`, the Django reviewers, `gha-security-reviewer`) only when the changed files touch its domain. The full domain table and the co-firing/overlap rules (e.g. `perf-reviewer` co-firing with `django-perf-reviewer` / `sql-reviewer`, where the overlap is the backstop) live in that reference.
 
 ### 3. Ground the review
 

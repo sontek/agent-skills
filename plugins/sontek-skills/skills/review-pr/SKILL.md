@@ -37,17 +37,7 @@ Stop and ask if scope is empty or ambiguous.
 
 ### 2. Pick reviewers from the diff
 
-Always dispatch **`code-reviewer`** and **`security-auditor`**. Add specialists when the diff touches their domain:
-
-| Signal in changed files | Add agent |
-|---|---|
-| Django code (`models.py`, `views.py`, `urls.py`, DRF, `from django`) | `django-access-reviewer`, `django-perf-reviewer` |
-| Application-tier code in any backend stack — Flask, FastAPI, Starlette, **Django views/services/tasks/workers**, Go `net/http` / gin / echo, Node express / fastify, plain Python services/workers | `perf-reviewer` |
-| `.github/workflows/*.yml` | `gha-security-reviewer` |
-| IaC (`*.tf`, `*.tofu`, `infra/`) | `iac-reviewer` |
-| DB layer (migrations, raw SQL, `import sqlalchemy`/`sqlmodel`, `cursor.execute`/`text(`) | `sql-reviewer` |
-
-Don't run a specialist with nothing in scope — it wastes a round and adds noise. `perf-reviewer` may co-fire with `django-perf-reviewer` or `sql-reviewer` (including on Django code) — dispatch both and let the coalesce dedup (step 4) collapse the overlap into corroboration; don't suppress one to avoid it.
+Select reviewers per the shared rules in [`${CLAUDE_PLUGIN_ROOT}/skills/review-code/references/reviewer-selection.md`](../review-code/references/reviewer-selection.md) — the single source of truth `review-code` reads from too, so the two skills' rosters can't drift. Always dispatch **`code-reviewer`** and **`security-auditor`**; add a specialist (`perf-reviewer`, `iac-reviewer`, `sql-reviewer`, the Django reviewers, `gha-security-reviewer`) only when the diff touches its domain. The full domain table and co-firing rules live in that reference; don't run a specialist with nothing in scope. When `perf-reviewer` co-fires with `django-perf-reviewer` or `sql-reviewer`, let the coalesce dedup (step 4) collapse the overlap into corroboration.
 
 ### 3. Dispatch in parallel
 
