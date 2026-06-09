@@ -1,0 +1,1 @@
+- **Consistency with similar code.** When a change touches code that resembles other code nearby, check that it stays consistent with those siblings, and flag inconsistencies that look unintended rather than deliberate.

@@ -16,6 +16,11 @@
     "start": "- **Stale shared \"latest/current\" state",
     "end": "- **Nullable/optional input collapsing into a consequential default.**"
   },
+  "sibling_branch_divergence": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **Sibling/parallel branch parity — enumerate the branches and compare",
+    "end": "- **Deadline/timeout computed before an unaccounted handoff delay.**"
+  },
   "deadline_before_handoff": {
     "file": "../plugins/sontek-skills/agents/code-reviewer.md",
     "start": "- **Deadline/timeout computed before an unaccounted handoff delay.**",
