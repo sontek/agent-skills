@@ -227,6 +227,29 @@ with the rule's own concept ("make invalid states unrepresentable"), wording
 code-reviewer never actually shipped. A baseline that quietly contains the answer
 hides a real gap. The `.old.md` must be what the skill *truly said before*, nothing more.
 
+### Cross-path rules need a faithful end-to-end gate, not the unit harness (`sibling_branch_divergence`)
+
+A 2026-06 audit of AI-bot comments on merged `sontek` PRs (catalogued in
+[`bot-miss-audit-2026-06.md`](bot-miss-audit-2026-06.md)) found the dominant
+`/review-code` miss was **cross-path**: a field/guard one of several co-present
+sibling branches carries but a peer drops (bar renderer reads `spec.stacked`, line
+renderer hardcodes it; chart path attaches `y_format`, table fallback drops it). The
+new `sibling_branch_divergence` rule addresses it, and proving it exposed a gating
+lesson:
+
+- **Unit suite (single snippet): does NOT discriminate** — generic "check
+  consistency" guidance catches two adjacent siblings just as well. The unit cases
+  here are a fire-check + the scatter **FP guard** (a renderer that legitimately has
+  no stacking concept must stay CLEAN — Opus & Haiku both hold it), *not* the gate.
+- **Faithful end-to-end (live `code-reviewer`, branch mode on the real 33-file PR
+  diff) IS the gate:** OFF flagged zero parity findings across 3 runs; ON caught the
+  divergence 3/3. Paths mode (whole file in scope) masked the gap — it must be the
+  branch-scope diff to reproduce the real miss.
+- Two process notes: measure the **finding class over N runs**, never one slug in
+  one run (a single-slug grep nearly produced a false "discriminates"); and phrase a
+  cross-path rule as an explicit **procedure** ("enumerate branches → parity table →
+  flag the blank cell"), which turned inconsistent firing (2/3) reproducible (3/3).
+
 ## Provenance
 
 Fixtures are clean, self-contained reconstructions of bug *shapes* — no
@@ -253,3 +276,11 @@ prove a rule generalizes instead of memorizing one stack's idiom.
 4. (Optional) Add `rules/<rule>.old.md` to A/B against wording you're replacing.
 5. `just gen` to confirm the cases are picked up, `just show` to confirm the
    slice binds to the right live text, then `just eval`.
+
+**Never state the verdict in a fixture.** Describe what the code *does* ("scatter
+has no stacking concept"), never the answer the model should reach — no "CLEAN",
+"FLAGGED", "must not flag", or "this is a bug" in a comment or docstring. A fixture
+that names its own verdict lets the model copy it instead of reasoning, which
+silently props up the safe-case false-positive guard and can hide a real over-flag.
+`just gen` enforces this: it fails on any fixture containing the verbatim verdict
+tokens `CLEAN` / `FLAGGED` (the same check runs in CI).
