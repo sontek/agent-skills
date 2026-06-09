@@ -96,3 +96,26 @@ the gate. (2) The first prose wording fired inconsistently end-to-end (paths 2/3
 rewording it as an explicit **procedure** (enumerate branches → fill a parity table
 → flag the blank cell) made firing reproducible (branch 3/3). Detection must be
 class-level over N runs, never a single slug in a single run.
+
+## Gap 2 result (rule: `default_ignores_explicit_null`)
+
+Shipped. A fallback that fills *absent* but not *explicit null* (Zod `.default()`,
+Python `dict.get(k, d)`). Unit-churn like Gap 1; gated end-to-end where the base
+reviewer **confidently mis-cleared** the hazard ("null resilience is sound") 3/3 and
+the rule flipped it to a correctly-hedged flag 3/3. Proven cross-language (a Go
+`comma-ok` map fallback is caught), and a verdict-leak in the safe fixtures (a
+"CLEAN" comment) was found to mask a Haiku FP — fixed by exempting null-checked
+results in the gate, and a `tests.gen.js` guard now fails CI on any fixture that
+echoes the verdict.
+
+## Gap 4 result (widen existing rules — 1 of 3)
+
+Prove-the-gap-first showed only one of the three "missed" rules had a real wording
+gap. **`deadline_before_handoff`** was widened to cover a retry loop that re-applies
+the whole-call budget per attempt (the queue/handoff shape was the only one it
+named); retry fixture CLEAN→FLAGGED, 7/7 both models, with an absolute-deadline
+exemption added to clear a Haiku FP the broad wording briefly caused.
+**`cleanup_nonlocal_exit`** already generalizes to a shell `exit` between
+acquire/release (8/8, shell fixtures kept as proof) and **`first_record_schema`**
+already covers its shape — both production misses were diff-scale, so no reword
+(forcing one would be churn).
