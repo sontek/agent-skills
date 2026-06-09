@@ -286,6 +286,31 @@ Gating mirrored `sibling_branch_divergence`:
   exempt a subsequently null-checked result; both models then hold 7/7. Lesson:
   never let a fixture comment state the verdict — it silently props up the FP guard.
 
+### Widening existing rules that missed real instances (prove-the-gap, 1 of 3)
+
+The audit also flagged three *existing* rules that a bot caught a case our reviewer
+missed (`deadline_before_handoff`, `cleanup_nonlocal_exit`, `first_record_schema`).
+Reconstructing each missed shape as a fixture and running the **live** rule showed
+only one was an actual wording gap — the other two already generalize, so their
+production misses were diff-scale, not fixable by rewording (forcing a change would
+be churn):
+
+- **`deadline_before_handoff` — widened.** It covered a timeout that ignores a
+  queue/handoff wait, but missed the sibling shape: a **retry loop that re-applies
+  the whole-call budget per attempt** (N attempts × full timeout). The retry fixture
+  was CLEAN under the old wording on both models; widening the rule to name both
+  shapes of the one invariant ("a per-unit timeout that ignores time already
+  consumed — by a wait *or* by prior attempts") flips it to FLAGGED 7/7. A Haiku
+  regression surfaced mid-A/B — the broad wording briefly flagged a *correct* retry
+  loop that shares one **absolute** deadline — and was closed by adding that
+  absolute-deadline pattern to the validation gate.
+- **`cleanup_nonlocal_exit` — no change, already general.** A shell recipe that
+  `exit`s between `deps-up` and `deps-down` (leaking the stack) is FLAGGED 8/8 and
+  the `trap`-guarded version stays CLEAN, even though the rule's examples are all
+  code-level (lock/event/await). Shell fixtures kept as standing proof.
+- **`first_record_schema` — no change.** Its existing fixtures already encode the
+  first-element-derivation shape the bot caught; the production miss was diff-scale.
+
 ## Provenance
 
 Fixtures are clean, self-contained reconstructions of bug *shapes* — no
