@@ -25,7 +25,7 @@ hunks. Almost every gap below is a facet of that one root cause.
 |---|---|---|---|---|---|
 | 1 | **Sibling-branch divergence** — a field/guard/special-case/output honored on one of several co-present branches handling the same concept, dropped on a parallel one (bar-vs-line renderer, happy-vs-fallback, retry-vs-original, sibling recipe) | ~15 | code-reviewer | **no rule** | platform-ui#3100, #3120; platform#3769, #3810, #3802, #3739 |
 | 2 | **Fallback / failure / null-input path** — the unreviewed path drops data or crashes (formatter throws, Zod `.default` rejects explicit `null`, error boundary loses content, `new Date(true)` passes a NaN guard) | ~8 | code-reviewer | partial | platform-ui#3117, #3120, #3098; platform#3784, #3774 |
-| 3 | **SQL/structured content in LLM prompt strings** — scalar subquery on non-unique key, mismatched time window, Azure `COALESCE` undercount, join-first vs MATERIALIZED, prompt example contradicting its own rule, dual-purpose schema-field description | ~9 | sql-reviewer / none | **no rule (surface uncovered)** | platform#3785, #3732, #3801, #3731 |
+| 3 | **SQL/structured content in LLM prompt strings** — scalar subquery on non-unique key, mismatched time window, Azure `COALESCE` undercount, join-first vs MATERIALIZED, prompt example contradicting its own rule, dual-purpose schema-field description | ~9 | sql-reviewer / none | **REFUTED — already covered** (see Gap 3 result) | platform#3785, #3732, #3801, #3731 |
 | 4a | **Retry/timeout budget** — per-attempt vs whole-call budget, missing budget-derived timeout, liveness bound omits a backoff term | ~4 | review-perf / code-reviewer | **existing `deadline_before_handoff` under-generalized** | platform#3769, #3762, #3774 |
 | 4b | **First-record schema inference** | ~1 | code-reviewer | **existing `first_record_schema` missed it** | platform#3793 |
 | 4c | **Cleanup skipped by non-local exit (shell)** | ~1 | code-reviewer | **existing `cleanup_nonlocal_exit` is Py/Go/TS-only** | platform#3818 |
@@ -119,3 +119,35 @@ exemption added to clear a Haiku FP the broad wording briefly caused.
 acquire/release (8/8, shell fixtures kept as proof) and **`first_record_schema`**
 already covers its shape — both production misses were diff-scale, so no reword
 (forcing one would be churn).
+
+## Gap 3 result (SQL/structured content in prompts — REFUTED)
+
+No rule. Prove-the-gap-first refuted the whole lane. Running the live `code-reviewer`
+on the real #3785 diff (`4c2e5f71`, base `bdc172971`) caught **both** facets 3/3 with
+no rule added:
+
+- **SQL correctness in the prompt example** — flagged the scalar subquery on the
+  non-unique `account_id` as a P2; the reasoning *beat the bot's*, citing the actual
+  ORM unique index (`ix_account_id__provider_account_id`), explaining the
+  "more than one row" error, and proposing the `IN (...)` fix that matches the
+  prompt's own plural "resolve the matching ids" prose.
+- **Example contradicts its own rule** — flagged that the new aggregate-first
+  `MATERIALIZED` directive is counter-demonstrated by un-rewritten join-first
+  examples in the same prompt.
+
+So the biggest "new lane" in this audit was not a coverage gap: the reviewer already
+treats prompt-embedded SQL and prompt rule/example consistency as reviewable code.
+The bots' wild catches were diff-scale/situational or predate reviewer improvements.
+Same call as the over-fit audit's refuted hypotheses — do not build what the reviewer
+already does. (`#3801` mismatched-XML-tags and `#3731` schema-field-description are
+single-instance facets not separately pursued.)
+
+## Audit status
+
+Real rules shipped: **`sibling_branch_divergence`** (Gap 1), **`default_ignores_explicit_null`**
+(Gap 2), **`deadline_before_handoff`** widened (Gap 4a). Refuted as already-covered:
+Gap 3, Gap 4b/4c. The recurring lesson: the live reviewer is stronger than the raw
+bot-miss list implies, so each gap must be proven against the live reviewer before a
+rule is written. Remaining un-screened: Gap 5 (config-default-violates-constraint),
+Gap 6 (FE theme/contrast), Gap 7 (type-coercion edges) — lower frequency; screen the
+same way before building.
