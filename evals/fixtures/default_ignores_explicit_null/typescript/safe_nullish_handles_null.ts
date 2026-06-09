@@ -1,6 +1,5 @@
-// Same nullable wire field, handled correctly: nullish() accepts both null and
-// undefined, and the transform coalesces either to []. No throw on explicit null.
-// CLEAN — this is the fix form, not the bug.
+// Same nullable wire field: nullish() accepts both null and undefined, and the
+// transform coalesces either to []. No throw on explicit null.
 import { z } from "zod";
 
 const ElementSchema = z.object({ id: z.string(), kind: z.string() });

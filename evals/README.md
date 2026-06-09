@@ -274,6 +274,17 @@ Gating mirrored `sibling_branch_divergence`:
   regardless"). The rule's value is flipping a confident wrong-clear into a
   correctly-hedged flag that asks the author the right question, not asserting an
   unverifiable consequence.
+- **Not over-fit to the two repo idioms.** The rule names Zod `.default()` and
+  Python `.get()` (what the repo uses), so a Go fixture was added to check it didn't
+  bind to those tokens: a `val, ok := m[key]` map fallback that fills absent-only is
+  flagged on both models, its nil-checked sibling stays clean. The model generalizes
+  from the invariant, not the named idioms.
+- **A verdict-leak in the safe fixtures was masking a real false positive.** The
+  safe-case comments originally said "CLEAN," echoing the output verdict. Removing
+  that exposed a Haiku false positive on a `.get()` result that *was* correctly
+  null-checked (`is not None`). The fix was to make the validation gate explicitly
+  exempt a subsequently null-checked result; both models then hold 7/7. Lesson:
+  never let a fixture comment state the verdict — it silently props up the FP guard.
 
 ## Provenance
 
