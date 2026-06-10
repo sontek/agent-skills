@@ -29,7 +29,7 @@ hunks. Almost every gap below is a facet of that one root cause.
 | 4a | **Retry/timeout budget** — per-attempt vs whole-call budget, missing budget-derived timeout, liveness bound omits a backoff term | ~4 | review-perf / code-reviewer | **existing `deadline_before_handoff` under-generalized** | platform#3769, #3762, #3774 |
 | 4b | **First-record schema inference** | ~1 | code-reviewer | **existing `first_record_schema` missed it** | platform#3793 |
 | 4c | **Cleanup skipped by non-local exit (shell)** | ~1 | code-reviewer | **existing `cleanup_nonlocal_exit` is Py/Go/TS-only** | platform#3818 |
-| 5 | **Config default violates the change's own safety constraint** — ALB idle-timeout default below the SQL ceiling; worker clamp ordering | ~3 | code-reviewer / iac | no rule | platform#3769, #3818 |
+| 5 | **A change violates a constraint documented elsewhere in the same file** — config default below the SQL ceiling; worker clamp ordering; **a new branch under a set-membership guard inheriting suffixes the guard's comment forbids (platform#3832)** | ~4 | code-reviewer / iac | **CONFIRMED — omnibus stuck ~1/3 any wording; focused lane 3/3 (see Gap 5 result)** | platform#3769, #3818, **#3832** |
 | 6 | **Theme-migration completeness / WCAG contrast** (FE) — background semanticized, foreground left hardcoded; shallow-merge clobbers nested style | ~4 | code-reviewer | no rule (niche) | platform-ui#3128 |
 | 7 | **Type-coercion / lenient-parser edge** — `?? 0` turns missing into zero, `Intl` percent default truncates | ~3 | code-reviewer | partial | platform-ui#3098, #3100 |
 
@@ -142,12 +142,127 @@ Same call as the over-fit audit's refuted hypotheses — do not build what the r
 already does. (`#3801` mismatched-XML-tags and `#3731` schema-field-description are
 single-instance facets not separately pursued.)
 
+## Gap 5 result (new code path violates a documented constraint — CONFIRMED, and NOT fixable by an omnibus rule)
+
+A facet of Gap 5, from a later PR: **platform#3832** (`s3proxy.py`, bot-reviewed
+commit `5cfc64a4`, base `4bfc15a5`). The diff adds a presigned-URL redirect *inside*
+the pre-existing `if Path(key).suffix in (".html",".css",".js",".json",".woff2")`
+block whose unchanged header comment says those suffixes "can never be served via
+pre-signed URLs" (breaks relative links; CORS for `.json`/`.woff2`). The new branch
+gates on `COMPONENT=="docs"` and size but **not** suffix, so it inherits the whole
+set — only `.js` is actually safe. coderabbit flagged it 🟠 Major.
+
+This one **breaks the "just reword it as a procedure" playbook that fixed Gap 1**, and
+that is the finding. Evidence ladder (rule = `documented_constraint_violated`):
+
+- **Omnibus reviewer, end-to-end on the real diff — stuck at ~1/3 regardless of
+  wording.** Five wordings × 3 runs each (18 runs): OFF 1/3, one-line bullet 0/3,
+  full investigation-step 1/3, mechanical set-membership grep + structural gate 1/3,
+  **mandatory triage gate 0/3** (the most imperative wording did *worst* — three runs
+  silently ignored the "mandatory" instruction). Every run that caught it
+  independently rated it **P3-latent** ("only the `.js` bundle is >1 MB today, so the
+  `.json`/`.woff2` case isn't reachable") — a defensible call; coderabbit's Major
+  over-stated it, and coderabbit's own fix (`allow .js + .css`) was wrong since the
+  comment forbids `.css` too. The author shipped the correct `.js`-only narrowing.
+- **Unit harness (single snippet): no discrimination — both 5/5.** Live rule *and*
+  the honest one-sentence generic baseline (`*.old.md`) both pass 5/5 (3 catch + 2
+  safe, Opus-4.8 notemp). As with Gaps 1/2 the snippet is a fire-check + FP guard, not
+  a gate — here it also proved the knowledge is fully present.
+- **Focused single-purpose lane, end-to-end on the real diff: 3/3.** A lane given
+  *only* this one check (the lean wording, nothing else) flagged it every run, quoted
+  the unchanged constraint, named the affected members, **refused the "not produced
+  today" dismissal**, and gave the `.js` fix. Severities medium/high/medium.
+
+So the lever is **focus, not wording**. The bug is non-salient (a 15-line "done-looking"
+feature add; the governing comment sits *outside* the diff hunk), and on a tiny diff the
+omnibus reviewer spends its attention on the salient, concrete finding (a missing test)
+and trades this away — *no rubric wording changes that*. This is the boundary of the
+Gap-1 lesson: for sibling-divergence the ON rule lifted end-to-end (0/3→3/3) because
+that PR was 33 files full of co-present branches (high salience); here the ON rule does
+not lift (1/3→1/3) because the check is non-salient and the constraint is out-of-hunk.
+A dedicated lane is the only thing that reaches it.
+
+Decision: **confirmed gap, do NOT record as refuted, and do NOT ship as an omnibus
+bullet** (as an omnibus bullet it is churn — 1/3 = baseline). The lean rule + fixtures
+are kept as the **seed and regression set for a focused "cross-region consistency"
+lane** (proposed below). "Less wording is better" is now measured, not asserted: the
+one-line bullet matched the multi-paragraph step end-to-end, and the longest wording
+was the worst.
+
+### Methodology refinements this produced
+
+1. **The unit-isolation refutation bar is unsafe for attention-class misses.** In
+   isolation both baseline and rule score 5/5 on a bug the omnibus misses 2/3 of the
+   time — isolation cannot reproduce an attention failure. (Cross-checked: **Gap 3's
+   refutation is still sound** — it was decided on the *live reviewer, real diff, 3/3*,
+   not in isolation. The flaw is specifically isolation- or single-run-based refutation.)
+2. **The discrimination gate must be N runs of the live reviewer on the real,
+   non-salient diff** — and even that only tells you whether an *omnibus* rule helps.
+   A "no-lift" result there does not mean "no gap"; it can mean "needs a lane."
+3. **New lever for the cross-region family: a focused lane.** When wording can't lift
+   the omnibus, isolate the check.
+
+### Lanes built and gated — one ships, one held
+
+The "~40 of 53 misses are cross-path" headline splits into two directions, so we built a
+focused lane for each and gated both end-to-end on the real diff (the inward bug at
+platform#3832; a constructed compiler-invisible wire-key rename for the outward case).
+
+- **`context-consistency-reviewer` (inward — SHIPS).** Consolidates the cross-region
+  family — `documented_constraint_violated` (new path vs enclosing guard), `sibling_branch_divergence`,
+  `stale_latest_state`, new-instance-vs-siblings, `comment_contradicts_code`, removed-guard
+  (2d) — into one single-purpose lane. Gate on #3832: omnibus **1/3** (18 runs, any
+  wording) → lane **3/3 at P2**; FP control (the fixed `.js`-only commit) **0/3 false
+  positives** (2/3 fully clean, 1/3 a legitimate P3 that the now-stale block comment
+  overclaims). Wired into `review-code` always-dispatch.
+- **`blast-radius-reviewer` (outward — HELD; its one real gap folded into step-2 instead).**
+  Built on disk, not wired. Three end-to-end attempts to find a blast-radius bug the omnibus
+  misses all failed — the omnibus caught each whenever the diff carried *any* signal: a
+  salient wire-key rename **2/2 (P0)**, and a seconds→ms unit change with a param rename
+  **3/3 (P0)**. Its step-2 blast-radius trace is strong; a standalone lane is churn on every
+  reproducible case (same verdict as Gap 3 and the rename above). **But the unit eval found
+  one genuine gap — a *concept* gap, not an attention gap.** Lane 2's `blast_radius` fixtures
+  (producer + stale consumer in one snippet) run against the *real pre-change step-2 wording*
+  scored **3/5**: it missed the two **semantic-drift** catches (a value's unit changed
+  seconds→ms; a list's sortedness guarantee dropped) — the class with *no token to grep*,
+  which step-2's trigger list (renamed/removed/literal/signature/exception) never named.
+  Adding a **semantic-drift bullet to step-2** ("a meaning change behind a stable signature
+  — unit/sign/sortedness/tz/nullability; no token to grep, so diff the behavior and check
+  every caller's assumption") takes it to **5/5**, no FP on the safe cases. So lane 2's only
+  distinct value shipped — as four lines in the omnibus's step-2, not a new always-on lane.
+  Revisit a standalone lane only if a *non-salient* blast-radius miss is ever found that the
+  live omnibus fails over N runs.
+
+**Attention gap vs concept gap — the second deciding variable.** The inward lane and the
+blast-radius concept failed the omnibus for *different* reasons, and the reason dictates the
+fix. The inward family is an **attention** gap: the omnibus *has* the concept but loses it on
+a small diff, so no rule wording lifted it (1/3 across 18 runs) and only a focused **lane**
+did (3/3). Semantic drift is a **concept** gap: step-2 simply never named the class, but the
+omnibus engages blast-radius readily once anything triggers it (3/3 end-to-end), so the fix is
+**wording** (name the concept in step-2), not a lane — and a unit A/B is enough to gate a
+concept gap (5/5 vs 3/5), whereas an attention gap needs the faithful end-to-end. Diagnose
+which before choosing lane-vs-wording: does the omnibus *know* this class (attention → lane)
+or *not* (concept → wording)?
+
+**The deciding variable is salience, and it sharpens every refutation in this doc.** A
+cross-region miss needs a focused lane only when it is *non-salient* — buried in a
+done-looking diff with the governing context out of the hunk (inward #3832). When the
+issue is the diff's obvious focus (a rename; a prompt-engineering PR's SQL — Gap 3), the
+omnibus reliably catches it and a lane is churn. So "does a lane help?" reduces to "is
+this miss salient in its real diff?" — measured by N runs of the live omnibus on that
+diff, never in isolation.
+
 ## Audit status
 
 Real rules shipped: **`sibling_branch_divergence`** (Gap 1), **`default_ignores_explicit_null`**
 (Gap 2), **`deadline_before_handoff`** widened (Gap 4a). Refuted as already-covered:
-Gap 3, Gap 4b/4c. The recurring lesson: the live reviewer is stronger than the raw
-bot-miss list implies, so each gap must be proven against the live reviewer before a
-rule is written. Remaining un-screened: Gap 5 (config-default-violates-constraint),
-Gap 6 (FE theme/contrast), Gap 7 (type-coercion edges) — lower frequency; screen the
-same way before building.
+Gap 3, Gap 4b/4c. **Confirmed but not omnibus-fixable:** Gap 5
+(`documented_constraint_violated`, platform#3832) — the omnibus reviewer is stuck at
+~1/3 regardless of wording, a focused lane hits 3/3; the lean rule + fixtures are the
+seed for a proposed cross-region consistency lane (see Gap 5 result). The recurring
+lesson stands but now has a sharper edge: the live reviewer is stronger than the raw
+bot-miss list implies, so each gap must be proven against the live reviewer on the real
+diff over N runs — and a no-lift result there means "needs a lane," not "no gap"
+(unit-isolation and single-run refutations are unsafe for attention-class misses).
+Remaining un-screened: rest of Gap 5 (config/IaC facets), Gap 6 (FE theme/contrast),
+Gap 7 (type-coercion edges) — lower frequency; screen the same way before building.
