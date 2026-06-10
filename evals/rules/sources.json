@@ -16,6 +16,16 @@
     "start": "- **Stale shared \"latest/current\" state",
     "end": "- **Nullable/optional input collapsing into a consequential default.**"
   },
+  "documented_constraint_violated": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "- **New code path violates a constraint the surrounding code documents.**",
+    "end": "- **Sibling/parallel branch parity — enumerate the branches and compare"
+  },
+  "blast_radius": {
+    "file": "../plugins/sontek-skills/agents/code-reviewer.md",
+    "start": "2. Trace the blast radius.",
+    "end": "   Tooling, in preference order"
+  },
   "sibling_branch_divergence": {
     "file": "../plugins/sontek-skills/agents/code-reviewer.md",
     "start": "- **Sibling/parallel branch parity — enumerate the branches and compare",
