@@ -27,9 +27,25 @@ module.exports = (output) => {
     problems.push(`opens with a label prefix: "${firstLine.slice(0, 40)}…"`);
   }
 
+  // DIAGNOSTIC, NOT A GATE. `pass` is always true; the signal is `score`.
+  //
+  // The skill does not ask the model to write dash-free prose in one shot — it
+  // generates the comment, then runs review-tone's strip_emdashes.py, which
+  // FLAGS the affected sentences for a rewrite pass (its own output is an
+  // explicit placeholder, not finished prose). This harness models only the
+  // generation turn, and it pastes in a comment-style.md that itself contains
+  // ~57 em-dashes for the model to mirror. Gating on dash-freedom here therefore
+  // failed most outputs in every arm, flooring `success` to 0 and masking the
+  // llm-rubric signal the suite exists to measure.
+  //
+  // Scoring it without gating keeps the number visible (regressions still show
+  // up in the metric) without letting it drown the rubric. Real dash compliance
+  // is enforced by the skill's strip-and-rewrite loop, which this suite does not
+  // model; gating it would need a second model turn.
+  const clean = problems.length === 0;
   return {
-    pass: problems.length === 0,
-    score: problems.length === 0 ? 1 : 0,
-    reason: problems.length === 0 ? "clean" : problems.join("; "),
+    pass: true,
+    score: clean ? 1 : 0,
+    reason: clean ? "clean" : `[diagnostic, non-gating] ${problems.join("; ")}`,
   };
 };

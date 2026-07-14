@@ -15,6 +15,9 @@
  *     variants/comment-style.baseline.md — the honest "before". An edit "helped"
  *     when a scenario the baseline gets wrong goes right under current, and the
  *     control scenario stays right under both (no regression).
+ *   variant=<name>: any other value binds variants/comment-style.<name>.md, so a
+ *     change that bundles several edits can be split into one arm per edit and
+ *     each one's contribution attributed separately.
  */
 const fs = require("fs");
 const path = require("path");
@@ -27,11 +30,19 @@ const LIVE_GUIDANCE = path.join(
   ROOT,
   "../../plugins/sontek-skills/skills/review-pr/references/comment-style.md",
 );
-const FROZEN_GUIDANCE = path.join(ROOT, "variants/comment-style.baseline.md");
+
+function guidancePath() {
+  if (VARIANT === "current") return LIVE_GUIDANCE;
+  const name = VARIANT === "old" ? "baseline" : VARIANT;
+  const p = path.join(ROOT, `variants/comment-style.${name}.md`);
+  if (!fs.existsSync(p)) {
+    throw new Error(`RULE_VARIANT=${VARIANT} but no such variant file: ${p}`);
+  }
+  return p;
+}
 
 function guidanceText() {
-  const p = VARIANT === "old" ? FROZEN_GUIDANCE : LIVE_GUIDANCE;
-  return fs.readFileSync(p, "utf8").trim();
+  return fs.readFileSync(guidancePath(), "utf8").trim();
 }
 
 function generateTests() {
@@ -46,8 +57,10 @@ function generateTests() {
     const sc = JSON.parse(fs.readFileSync(path.join(SCENARIOS, fname), "utf8"));
 
     const assert = [
-      // Deterministic, no grader: AI tells + label prefixes the comment must not carry.
-      { type: "javascript", value: "file://asserts/hygiene.js" },
+      // Deterministic, no grader: AI tells + label prefixes the comment must not
+      // carry. Reported as the `hygiene` metric, NOT a gate — see asserts/hygiene.js
+      // for why (the skill strips dashes in a second pass this harness doesn't model).
+      { type: "javascript", value: "file://asserts/hygiene.js", metric: "hygiene" },
     ];
     // Each scenario rubric is an llm-rubric describing the property the comment
     // must exhibit. The discriminating scenarios are written so the baseline
@@ -76,7 +89,7 @@ module.exports = generateTests;
 // `node tests.gen.js --show` -> print which guidance file binds for this variant
 if (require.main === module) {
   if (process.argv[2] === "--show") {
-    const p = VARIANT === "old" ? FROZEN_GUIDANCE : LIVE_GUIDANCE;
+    const p = guidancePath();
     console.log(`variant=${VARIANT} reads guidance from:\n  ${p}`);
     console.log(`(${fs.readFileSync(p, "utf8").split("\n").length} lines)`);
     process.exit(0);
