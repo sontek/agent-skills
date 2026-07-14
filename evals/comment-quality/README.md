@@ -108,19 +108,88 @@ Not gated cleanly:
   with the observable effect, then failed it). Kept as guidance, not claimed as a
   measured gate.
 
+## Refuted, 2026-07-14: three comment-style rules, a pre-post checklist, and review-pr step 6
+
+A follow-up batch of comment-style edits was proposed, gated, and **dropped as
+churn** — the same fate as `log_assertion` / `type_dispatch` in the detection
+suite. Recorded here so nobody re-proposes them without new evidence.
+
+The edits: extend the observable-effect rule to cover exception types and catch
+paths; a new "don't restate a red CI check, diagnose it" rule; extend the jargon
+rule to abstraction nouns (*gate*, *surface*, *path*); an eight-item **Pre-post
+checklist** wired into SKILL.md step 5; and a **step 6** pair requiring the triage
+output to state confidence and partition bot-overlapping findings.
+
+Gated with a 3-arm A/B (`old` / `rulesonly` / `current`) so the rules and the
+checklist could be attributed separately — bundling them would have made any win
+unattributable. Scenarios 07/08/09 were written for the three rules.
+
+| scenario | opus.old | opus.rulesonly | opus.current | haiku.old | haiku.rulesonly | haiku.current |
+|---|---|---|---|---|---|---|
+| `call_flow_exception` | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 |
+| `failing_check_restatement` | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 | 3/3 |
+| `verbose_symbol_inventory` | 0/3 | 3/3 | 3/3 | 3/3 | 0/3 | 0/3 |
+
+**No headroom.** 07 and 08 pass 3/3 at baseline on both models — the shipped
+guidance already produces the property, so the rules buy nothing. 09 flips sign
+across models (opus 0→3 looks like a win, haiku 3→0 like a regression), which is
+noise, not signal. `rulesonly` → `current` shows no scenario improving, so the
+checklist earns nothing either. Scenarios 07-09 were deleted with the rules: a
+test both arms pass measures the base model, not the skill.
+
+**Step 6** was gated behaviorally instead (promptfoo can't reach it — `prompt.js`
+asks for the comment body only, and step 6 governs the chat triage output). Two
+`evals/behavioral` specs, edit-A/B, neutral prompt, 2 runs each: ON matched 2/2
+and **OFF also matched 2/2** on both properties. The skill without step 6 already
+volunteers confidence and already partitions bot overlap. Both specs were deleted
+with the edit.
+
+## Two harness bugs found while running the above
+
+**The grader was silently dead.** `defaultTest.options.provider` used
+`bedrock:{{ env.EVAL_BEDROCK_GRADER or '...' }}`. The `or 'default'` fallback does
+not render, so with the env var unset the whole template reached Bedrock as a
+literal string and every rubric failed with "The provided model identifier is
+invalid." The trap is the failure mode: promptfoo scores a grader error as a
+**failed assertion, not an error**, so the run reports `0 errors (0%)` and emits a
+plausible all-zero table that looks like a real catastrophic measurement. The
+grader id is now a literal. If a future run comes back all-zero, check
+`gradingResult` for grader errors *before* believing it, and sanity-check the
+`04_control_plain_finding` control — it passing is the cheapest signal the harness
+is alive.
+
+**Hygiene was gating something the model was never asked to do.** `hygiene.js`
+failed the output on any em-dash, but the skill never asks the model to write
+dash-free prose in one shot: it generates, then runs review-tone's
+`strip_emdashes.py`, which *flags* sentences for a rewrite pass (its own output is
+an explicit placeholder, not finished prose). This harness models only the
+generation turn, and it pastes in a `comment-style.md` that itself contains ~57
+em-dashes to mirror. Result: hygiene failed most outputs in **every** arm, flooring
+`success` to 0 and masking the rubric signal. It is now a non-gating diagnostic
+(`pass` always true, signal in `score`). Gating it honestly would need a second
+model turn modelling the strip-and-rewrite loop.
+
 ## Reproduce
 
 The provider id template `{{ env.EVAL_BEDROCK_MODEL or '...' }}` only renders when
 the env var is **set** — the `or 'default'` fallback comes through literally and
-Bedrock rejects it. So both must be exported:
+Bedrock rejects it. So it must be exported (the grader id is now hardcoded, so it
+no longer needs one):
 
 ```bash
-export AWS_PROFILE=<profile> AWS_REGION=us-east-1
+export AWS_PROFILE=<profile> AWS_REGION=us-west-2
 export EVAL_BEDROCK_MODEL=us.anthropic.claude-opus-4-1-20250805-v1:0
-export EVAL_BEDROCK_GRADER=us.anthropic.claude-haiku-4-5-20251001-v1:0
 just ab-cq            # baseline (frozen) then live, back to back
 ```
 
+Claude 4.x is only served in some regions; `us-west-2` works, `us-east-1` does not.
 Run with the Haiku id as `EVAL_BEDROCK_MODEL` for the weaker-model arm; the
 `--repeat 3` is passed by re-running, or add it to the recipe. Scenarios are clean
 reconstructions of bug *shapes*; no proprietary code is copied.
+
+`variants/comment-style.baseline.md` is now rolled forward to the last **proven**
+state, so `old` and `current` are identical until a new edit lands in
+`comment-style.md`. Scenarios 01-03/05/06 pass in both arms by design — they are
+regression guards for the shipped name-which-side rule, not live discriminators.
+`RULE_VARIANT=<name>` binds `variants/comment-style.<name>.md`, which is how a
+bundled edit gets split into one arm per part.
