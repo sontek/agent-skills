@@ -1,7 +1,6 @@
 ---
 name: finding-verifier
 description: Adversarial fresh-context verifier for review findings. Use when a review skill has a coalesced list of candidate findings and wants each one independently fact-checked before it reaches the author — receives only the claim and the code, never the finder's reasoning, and tries to refute each from the code. Returns CONFIRMED / PLAUSIBLE / REFUTED with quoted evidence. Invoked by review-code, review-pr, and review-security at their coalesce step; not a finder — it never invents new findings.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "WebFetch"]
 ---
 

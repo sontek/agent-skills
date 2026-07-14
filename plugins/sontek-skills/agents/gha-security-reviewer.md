@@ -1,7 +1,6 @@
 ---
 name: gha-security-reviewer
 description: GitHub Actions security review in isolated context. Use when the caller wants an independent audit of .github/workflows/ for pwn requests, expression injection, credential escalation, and supply chain attacks — exploitation-focused with concrete PoCs.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

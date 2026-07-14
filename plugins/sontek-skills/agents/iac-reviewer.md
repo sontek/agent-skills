@@ -1,7 +1,6 @@
 ---
 name: iac-reviewer
 description: Infrastructure-as-code review in isolated context. Use when the caller wants an independent audit of Terraform / OpenTofu (or similar IaC) for cross-variable validation gaps, managed-service hard limits, hardcoded values that should be variables, and missing provider/tool version floors. Validation-first — pattern matching alone is not enough to flag.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

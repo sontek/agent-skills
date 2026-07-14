@@ -1,7 +1,6 @@
 ---
 name: context-consistency-reviewer
 description: Cross-region consistency review in isolated context — does a change fit the constraints of the code around it? Use when the caller wants an independent pass for the "locally-correct, contextually-wrong" bug family: a new branch violating an enclosing guard's documented constraint, sibling branches that diverge, a shared latest-state written by only some paths, a new instance missing sibling machinery, or a comment the code now contradicts.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task"]
 ---
 

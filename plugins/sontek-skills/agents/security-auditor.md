@@ -1,7 +1,6 @@
 ---
 name: security-auditor
 description: Senior security engineer with offensive + defensive background. Use when the user asks to "audit for security", "check for vulnerabilities", "OWASP review", "security posture review", "pre-launch security check", or any dedicated security deep-dive that benefits from isolated context.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

@@ -1,7 +1,6 @@
 ---
 name: django-perf-reviewer
 description: Django performance review in isolated context. Use when the caller wants an independent audit for N+1 queries, unbounded querysets, missing indexes, or write-loop hot paths. Validation-first — pattern matching alone is not enough to flag.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

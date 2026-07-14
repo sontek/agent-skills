@@ -1,7 +1,6 @@
 ---
 name: perf-reviewer
 description: General application performance review in isolated context. Use when the caller wants an independent audit of non-Django, non-SQL-layer code for algorithmic complexity, caching gaps, batching opportunities, I/O bottlenecks, and concurrency mistakes. Covers Flask, FastAPI, Go, Node, generic Python — the application-tier surface that django-perf-reviewer and sql-reviewer do not. Validation-first — pattern matching alone is not enough to flag.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 
