@@ -1,7 +1,6 @@
 ---
 name: researcher
 description: Web research specialist that produces source-cited findings in isolated context. Use when the caller needs an external fact, library comparison, API behavior, RFC summary, or "what's the current best practice for X" answered with evidence and source URLs. Runs in isolated context so raw search results don't pollute the caller's window.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "WebSearch", "WebFetch"]
 ---
 

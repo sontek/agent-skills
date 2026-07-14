@@ -1,7 +1,6 @@
 ---
 name: blast-radius-reviewer
 description: Blast-radius review in isolated context — does a change break code elsewhere in the repo that depends on it? Use when the caller wants an independent pass for cross-file breakage: a renamed/removed symbol still referenced, a changed contract literal (enum/event/status/dict key/template placeholder) whose consumers weren't updated, or a changed signature/return-shape/exception a caller still uses the old way.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task"]
 ---
 

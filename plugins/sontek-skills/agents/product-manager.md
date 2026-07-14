@@ -1,7 +1,6 @@
 ---
 name: product-manager
 description: Senior PM with 15+ years shipping consumer and enterprise products, with strong UX sensibility. Use when the user asks to "review as a product manager", "PM review", "UX review", "is this the right feature", "prioritize these", "user flow review", "put on your PM hat", or wants a product/scope review of a plan (IMPLEMENTATION_PLAN_*.md, REFACTOR_PLAN_*.md, or a plan-mode draft).
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

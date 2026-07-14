@@ -1,7 +1,6 @@
 ---
 name: code-reviewer
 description: Independent code review with prioritized findings in isolated context. Use when the caller wants a fresh-eyes pass over a diff or file list and might be biased toward the work being reviewed.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

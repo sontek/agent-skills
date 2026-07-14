@@ -1,7 +1,6 @@
 ---
 name: senior-engineer
 description: Opinionated technical judgment from a 15+ year SaaS engineer. Use when the user asks to "review as a senior engineer", "put on your senior engineer hat", "review this plan", "analyze the plan", "critique the plan", wants architectural review of code or a plan (IMPLEMENTATION_PLAN_*.md, REFACTOR_PLAN_*.md, or a plan-mode draft), scalability/maintainability assessment, trade-off analysis, or "will this scale" questions.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

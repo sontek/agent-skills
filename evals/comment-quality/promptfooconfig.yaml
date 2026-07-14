@@ -26,4 +26,17 @@ tests: file://tests.gen.js
 defaultTest:
   options:
     # llm-rubric grader. Cheap model; the rubrics are pass/fail discriminations.
-    provider: "bedrock:{{ env.EVAL_BEDROCK_GRADER or 'us.anthropic.claude-haiku-4-5-20251001-v1:0' }}"
+    #
+    # Deliberately a LITERAL id, not `{{ env.EVAL_BEDROCK_GRADER or '...' }}`.
+    # The `or 'default'` fallback does not render: with the env var unset, the
+    # whole template reaches Bedrock as a literal string and every rubric dies
+    # with "The provided model identifier is invalid" — while promptfoo still
+    # reports "0 errors (0%)", because a grader error is scored as a FAILED
+    # ASSERTION, not an error. The result is an all-zero table that looks like a
+    # real (catastrophic) measurement. Hardcoding the id removes the trap; the
+    # grader is a fixed cheap model and never needed to vary per arm.
+    #
+    # Region is intentionally unset: with no `region` key the AWS SDK reads
+    # AWS_REGION from the environment, which is how the justfile and README
+    # already select it.
+    provider: "bedrock:us.anthropic.claude-haiku-4-5-20251001-v1:0"

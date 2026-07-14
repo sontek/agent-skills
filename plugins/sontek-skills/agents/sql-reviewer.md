@@ -1,7 +1,6 @@
 ---
 name: sql-reviewer
 description: Database / SQL review in isolated context. Use when the caller wants an independent audit of the data layer — raw SQL, SQLAlchemy Core/ORM, or migrations — for injection, query performance (N+1, unbounded), migration/DDL safety, and transaction/locking semantics. Covers the non-Django-ORM SQL surface that django-perf-reviewer does not. Validation-first — pattern matching alone is not enough to flag.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

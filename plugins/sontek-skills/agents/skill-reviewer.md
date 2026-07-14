@@ -1,7 +1,6 @@
 ---
 name: skill-reviewer
 description: Audit SKILL.md files against the write-skill authoring rubric in isolated context. Use when the caller wants an independent compliance pass on a new or refactored skill — frontmatter validity, trigger discrimination, structural size, references resolution, skill-vs-agent typing.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 

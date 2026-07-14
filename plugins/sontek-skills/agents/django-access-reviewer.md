@@ -1,7 +1,6 @@
 ---
 name: django-access-reviewer
 description: Django access control and IDOR review in isolated context. Use when the caller wants an independent IDOR / authorization / tenant-isolation audit of Django views, DRF viewsets, ORM queries, or any Python/Django code handling user authorization.
-model: opus
 tools: ["Read", "Grep", "Glob", "Bash", "Task", "WebFetch"]
 ---
 
