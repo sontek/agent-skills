@@ -104,6 +104,13 @@ If you cannot run commands, use this checklist for Layer 1 (Layer 2 has no subst
 7. Any multi-word noun of four or more words? Unpack it.
 8. Same thing named two ways? Pick one name.
 
+## A clean score is not the same as a clean draft
+
+Both scripts check Rule A and the lintable parts of Layer 1. Rules B through G (filler, labels, editorializing, jargon, **bottom-line-first and conciseness**, AI attribution) have no script — nothing fails loudly if you skip them, so it is easy to run the two commands, see a good number, and stop without re-reading the draft against those five. Do the re-read every time, not only when a script flags something. In particular:
+
+- **Rule F is the one most often skipped.** A passing em-dash/lint score says nothing about whether the first sentence states the point, whether each paragraph carries one idea, or whether a paragraph restates something the reader can already see elsewhere (the diff, a linked doc, the skill's own rule catalog). Restating implementation detail the reviewer can already see is a Rule F violation even when every sentence is individually well-formed.
+- After a rewrite, count paragraphs and ask what each one is for. If two paragraphs make the same point from different angles, or a paragraph exists to explain the mechanism rather than state the change, cut it.
+
 ## Output
 
 - **Standalone mode:** briefly list what you changed and why (grouped by layer/rule is fine), then give the full cleaned text. If the text was already clean, say so rather than inventing changes.
