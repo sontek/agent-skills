@@ -1,6 +1,6 @@
 ---
 name: plan-implementation
-description: Create structured implementation plans for NEW features, complex additions, or multi-phase work. Use when user asks to "create a plan" or "make an implementation plan" or work requires multiple distinct phases. Outputs a local IMPLEMENTATION_PLAN_<feature-name>.md file with reconnaissance findings, binary Ideal State Criteria, premortem, phases, and quality gates. For restructuring existing code without changing behavior, use plan-refactor instead. If Claude Code is in plan mode, plan mode itself already produces an in-conversation plan via ExitPlanMode — use review-plan on that draft instead of invoking this skill.
+description: Create a local IMPLEMENTATION_PLAN_<feature>.md for NEW features, complex additions, or multi-phase work, with reconnaissance, binary ideal-state criteria, premortem, phases, and quality gates. Use for "create an implementation plan". Use plan-refactor for behavior-preserving restructuring, and review-plan for an existing plan-mode draft.
 ---
 
 # Implementation Plan

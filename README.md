@@ -1,8 +1,28 @@
 # Sontek Skills
 
-Agent skills and subagents, following the [Agent Skills](https://agentskills.io) open format.
+Agent skills for Codex and Claude Code, following the
+[Agent Skills](https://agentskills.io) open format. The repository also ships
+Claude Code-specific subagents.
 
 ## Installation
+
+### Codex from local clone
+
+```bash
+# Clone the repository
+git clone git@github.com:sontek/sontek-skills.git ~/sontek-skills
+
+# Register this repository's marketplace and install the plugin
+codex plugin marketplace add ~/sontek-skills
+codex plugin add sontek-skills@sontek-skills-local
+```
+
+Start a new Codex thread after installation so the skills are discovered.
+
+Codex loads the skills under `plugins/sontek-skills/skills/`. The persona files
+under `plugins/sontek-skills/agents/` are Claude Code-specific; skills that ask
+for parallel or delegated reviewers can still use Codex's native sub-agent
+support when it is available.
 
 ### Claude Code from local clone
 
@@ -41,8 +61,11 @@ Or use `/plugin` to open the interactive plugin manager.
 
 This plugin ships two kinds of capabilities:
 
-- **Skills** — atomic workflows the main agent loads inline. `verb-object` naming (`create-pr`, `review-code`, `write-skill`).
-- **Agents** — persona subagents that run in isolated context and compose skills with judgment. `role-noun` naming (`senior-engineer`, `security-auditor`).
+- **Skills** — portable atomic workflows loaded by Codex or Claude Code.
+  `verb-object` naming (`create-pr`, `review-code`, `write-skill`).
+- **Agents** — Claude Code-specific persona subagents that run in isolated
+  context and compose skills with judgment. `role-noun` naming
+  (`senior-engineer`, `security-auditor`).
 
 See [Skills vs agents](#skills-vs-agents) for the decision guide.
 

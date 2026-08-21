@@ -1,6 +1,7 @@
 ---
 name: sales-email-followup
-description: Draft a post-meeting follow-up email in John Anderson's voice as Founder of Drape — the CI Brain, a CI reliability platform — grounded in the actual meeting notes from Google Docs (Google Drive). Use when sending a follow-up after a call or meeting; pulls the notes doc so the email is specific, not boilerplate. Applies a Win Without Pitching posture and the Four Conversations model. Family: sales-email-draft / sales-email-prospect / sales-email-followup / sales-email-reply.
+description: >-
+  Draft a post-meeting follow-up email in John Anderson's voice as Founder of Drape — the CI Brain, a CI reliability platform — grounded in the actual meeting notes from Google Docs (Google Drive). Use when sending a follow-up after a call or meeting; pulls the notes doc so the email is specific, not boilerplate. Applies a Win Without Pitching posture and the Four Conversations model. Family: sales-email-draft / sales-email-prospect / sales-email-followup / sales-email-reply.
 argument-hint: '<meeting name, attendee, date, or topic>'
 allowed-tools: Read, Write, Bash, mcp__claude_ai_Google_Drive__search_files, mcp__claude_ai_Google_Drive__list_recent_files, mcp__claude_ai_Google_Drive__get_file_metadata, mcp__claude_ai_Google_Drive__read_file_content
 ---

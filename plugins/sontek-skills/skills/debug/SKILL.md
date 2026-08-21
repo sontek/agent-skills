@@ -1,6 +1,7 @@
 ---
 name: debug
-description: Diagnose a bug by the scientific method — reproduce, hypothesize, run an experiment that could disprove the hypothesis, then fix the root cause and add a regression test. Use when investigating a bug, diagnosing a failure, chasing a flaky or intermittent test, or tracing the root cause of unexpected behavior. Triggers on "debug this", "why isn't this working", "find the root cause", "this test is flaky", "can't reproduce", "figure out why X fails". Distinct from `fix-issue`, which implements a fix once the cause is known — `debug` is the diagnosis phase that finds it. Composes with sentry (pull the production error first), fix-issue / iterate-pr (write and ship the fix once the cause is found).
+description: >-
+  Diagnose bugs scientifically: reproduce, form a hypothesis, run a falsifying experiment, identify the root cause, then fix it and add a regression test. Use for "debug this", "why isn't this working?", flaky/intermittent failures, "can't reproduce", or "find the root cause". Unlike fix-issue, debug is for cases where the cause is not yet known.
 ---
 
 # Debug

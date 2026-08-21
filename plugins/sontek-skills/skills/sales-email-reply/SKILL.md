@@ -1,6 +1,7 @@
 ---
 name: sales-email-reply
-description: Draft a reply to a forwarded email thread in John Anderson's voice as Founder of Drape — the CI Brain, a CI reliability platform. Use when the user pastes an email thread and wants a response drafted, optionally with instructions on tone, stance, or what to address. Applies a Win Without Pitching posture for sales-adjacent threads. Family: sales-email-draft / sales-email-prospect / sales-email-followup / sales-email-reply.
+description: >-
+  Draft a reply to a forwarded email thread in John Anderson's voice as Founder of Drape — the CI Brain, a CI reliability platform. Use when the user pastes an email thread and wants a response drafted, optionally with instructions on tone, stance, or what to address. Applies a Win Without Pitching posture for sales-adjacent threads. Family: sales-email-draft / sales-email-prospect / sales-email-followup / sales-email-reply.
 argument-hint: '<email thread to reply to, plus any instructions>'
 ---
 

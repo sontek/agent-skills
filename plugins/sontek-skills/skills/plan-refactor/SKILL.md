@@ -1,6 +1,6 @@
 ---
 name: plan-refactor
-description: Create a detailed refactor plan with tiny commits via user interview. Writes the plan to a local REFACTOR_PLAN_<short-name>.md file. Use when the user asks to "plan a refactor", "create a refactor plan", "plan how to refactor", "restructure" existing code, "extract" a module, or wants tiny-commit decomposition of an existing module without changing behavior. For NEW features or phased additions, use plan-implementation instead. If Claude Code is in plan mode, plan mode itself already produces an in-conversation plan via ExitPlanMode — use review-plan on that draft instead of invoking this skill.
+description: Create a local REFACTOR_PLAN_<name>.md through a user interview, decomposing behavior-preserving restructuring into tiny commits. Use for "plan a refactor", "restructure this code", "extract a module", or tiny-commit refactor planning. Use plan-implementation for NEW features or phased additions, and review-plan for an existing plan-mode draft.
 ---
 
 This skill is invoked when the user wants to plan a refactor. Go through the steps below. You may skip steps if you don't consider them necessary.

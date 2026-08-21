@@ -1,6 +1,7 @@
 ---
 name: sales-email-prospect
-description: Draft a prospecting or outreach email in John Anderson's voice as Founder of Drape — the CI Brain, a CI reliability platform. Use when reaching out to a lead, prospect, or existing contact, given their name, company, role, and any context you provide. Sells from expertise with a direct, confident ask for an intro meeting; consultative, not pushy. Family: sales-email-draft / sales-email-prospect / sales-email-followup / sales-email-reply.
+description: >-
+  Draft a prospecting or outreach email in John Anderson's voice as Founder of Drape — the CI Brain, a CI reliability platform. Use when reaching out to a lead, prospect, or existing contact, given their name, company, role, and any context you provide. Sells from expertise with a direct, confident ask for an intro meeting; consultative, not pushy. Family: sales-email-draft / sales-email-prospect / sales-email-followup / sales-email-reply.
 argument-hint: '<contact name, company, role, and any context for the outreach>'
 ---
 

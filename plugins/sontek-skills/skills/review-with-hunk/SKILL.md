@@ -1,6 +1,7 @@
 ---
 name: review-with-hunk
-description: Collaborate with the user over a live Hunk diff-review session — read the inline notes they leave on hunks and act on them, and/or walk them through a changeset by steering their view and annotating it. Use when the user has Hunk open and says "address my hunk notes", "I left comments in Hunk", "I commented on the diff", "fix what I flagged", "walk me through this diff", "explain these changes in Hunk", or wants a back-and-forth conversation about a diff they're viewing. Two moves in one loop — `address` (you -> agent: act on the user's `--type user` notes) and `walk` (agent -> user: navigate + leave explanatory comments). Distinct from `review-code` (multi-agent review of your own branch, no live session), `review-pr` (comments on someone else's GitHub PR), `auto-review-code` (applies a review's findings with no human in the loop), and the tool's bundled `hunk-review` skill (documents only the agent-narrates direction and misses the user's notes by default).
+description: >-
+  Collaborate in a live Hunk diff-review session: address the user's inline hunk notes, or walk through a changeset by steering the view and adding explanations. Use for "address my Hunk notes", "fix what I flagged", or "walk me through this diff". Unlike review-code/review-pr, this is interactive; unlike auto-review-code, it keeps the user in the loop.
 allowed-tools: Read, Edit, Write, Grep, Glob, Bash
 ---
 
