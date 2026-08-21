@@ -1,6 +1,6 @@
 ---
 name: draw-mermaid-diagram
-description: Create and validate Mermaid diagrams of any type — flowchart, sequence, class, ER, state, gantt, journey, timeline, mindmap, pie. Use when the user asks to "draw a Mermaid diagram", "draw a sequence diagram", "draw a state machine", "draw an ER diagram", "draw a class diagram", "make a flowchart", "diagram this auth flow", "diagram this state machine", or wants any non-infrastructure diagram in Mermaid. For AWS / cloud architecture diagrams use `draw-infra-diagram` instead — that skill adds the curated AWS shape vocabulary, color palette, region tinting, and debugging-oriented composition on top of the basics here.
+description: Create and validate Mermaid flowcharts, sequence, class, ER, state, gantt, journey, timeline, mindmap, and pie diagrams. Use for "draw a Mermaid diagram", "draw a sequence/state/ER/class diagram", "make a flowchart", or a non-infrastructure flow. Use draw-infra-diagram for AWS/cloud architecture with specialized shapes and debugging composition.
 ---
 
 # Draw Mermaid Diagram

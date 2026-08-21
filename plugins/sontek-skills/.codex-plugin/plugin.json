@@ -1,0 +1,38 @@
+{
+  "name": "sontek-skills",
+  "version": "2.0.0",
+  "description": "Agent skills for code review, security audits, Git workflows, debugging, planning, architecture, and engineering productivity.",
+  "author": {
+    "name": "sontek",
+    "url": "https://github.com/sontek"
+  },
+  "homepage": "https://github.com/sontek/sontek-skills",
+  "repository": "https://github.com/sontek/sontek-skills",
+  "license": "MPL-2.0",
+  "keywords": [
+    "agent-skills",
+    "code-review",
+    "git",
+    "security",
+    "planning"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Sontek Skills",
+    "shortDescription": "Engineering workflows for Codex",
+    "longDescription": "Reusable engineering skills for code review, security audits, Git workflows, debugging, planning, architecture, and implementation.",
+    "developerName": "sontek",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/sontek/sontek-skills",
+    "defaultPrompt": [
+      "Review my current changes for correctness and risk.",
+      "Create a focused implementation plan for this feature.",
+      "Debug this failure and identify the root cause."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

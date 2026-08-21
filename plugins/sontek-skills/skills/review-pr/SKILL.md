@@ -1,6 +1,7 @@
 ---
 name: review-pr
-description: Review a pull request or branch by fanning out to specialized review sub-agents (code review, security, Django access/perf, GitHub Actions), then coalescing their findings into concise, human-toned suggested review comments for your approval. Use when asked to "review this PR", "do a full PR review", "give me review comments", "run all the reviewers", or "multi-agent review" — when you want consolidated comments to post, not fixes applied. Two modes: reviewing someone else's PR (default, proposes comments to post) and self-reviewing your own PR before you hand it off (`/review-pr self`, or "self-review my PR", "is my PR complete / merge-ready" — adds completeness and merge-readiness checks, output is a verdict for you). Propose-only in both modes: never edits code, never posts without approval. For a single-aspect pass use review-code or review-security; to auto-apply fixes use auto-review-code; to fix CI/feedback use iterate-pr.
+description: >-
+  Review a PR or branch with specialized reviewers and propose concise, deduplicated comments. Use for "review this PR", "full PR review", "give me review comments", multi-agent review, or self-review/merge-readiness. Propose-only: never edit or post without approval. Use review-code for a focused pass, auto-review-code for fixes, and iterate-pr for CI/feedback.
 allowed-tools: Read, Grep, Glob, Bash, Task
 ---
 

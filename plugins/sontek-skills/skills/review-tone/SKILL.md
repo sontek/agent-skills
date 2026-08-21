@@ -1,6 +1,6 @@
 ---
 name: review-tone
-description: Write, rewrite, and review prose (docs, READMEs, PR descriptions, review comments, commit messages, error messages, release notes, tool descriptions) so it reads clear and controlled, then human, not AI-generated. Two layers — STE-flavored writing (active voice, simple tenses, sentence caps, one name per concept, no semicolons/phrasal verbs) and AI-slop hygiene (no em-dashes, no filler/marketing words, no label prefixes, no editorializing, plain words over jargon, lead with the point, no AI attribution). Use when asked to draft docs/PR text/release notes/error messages from scratch, "make this not sound like AI", "does this read human", "review the tone", "strip the em-dashes", "de-slop this", or check STE/controlled-language violations. Not for marketing copy, essays, chat replies, or anything needing a persuasive voice (sales emails, landing pages) — those own their voice and call this only for the slop-hygiene layer. Final pass for sales-email-*, create-pr, review-pr comments.
+description: Write, rewrite, or review project prose so it is clear, controlled, human, and free of AI-style filler. Use for docs, READMEs, PR text, review comments, commit messages, errors, release notes, "make this not sound like AI", tone review, de-slopping, or STE checks. Not for persuasive marketing, essays, chat, or sales copy.
 argument-hint: '<text to write/rewrite/review, or a path/description of what to clean>'
 allowed-tools: Read, Write, Bash
 metadata:

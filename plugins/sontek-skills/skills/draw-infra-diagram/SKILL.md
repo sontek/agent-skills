@@ -1,6 +1,6 @@
 ---
 name: draw-infra-diagram
-description: Draw AWS / cloud infrastructure architecture diagrams in Mermaid that are clear, debuggable, and customer-friendly. Use when the user asks to "draw an infra diagram", "draw an AWS architecture diagram", "make a Mermaid diagram of this AWS architecture", "diagram this AWS flow", "build a debugging diagram for support", or wants a customer-facing or support-oriented cloud architecture map. AWS specialist on top of `draw-mermaid-diagram` — adds shape vocabulary, AWS-aligned color palette, region tinting, rendered legends, DLQ styling, edge labels, resource-name verification, render→PDF export pipeline, and document structure for debugging-oriented infra guides. For non-infrastructure Mermaid diagrams (sequence, class, ER, state, gantt, generic flowchart), use `draw-mermaid-diagram` instead.
+description: Create and validate customer- or support-facing AWS/cloud infrastructure diagrams in Mermaid. Use for "draw an infra diagram", "AWS architecture diagram", cloud flows, or debugging maps. Adds AWS shapes, colors, region tinting, legends, DLQ styling, edge labels, resource checks, and PDF export. Use draw-mermaid-diagram for other diagrams.
 ---
 
 # Draw Infra Diagram

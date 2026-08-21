@@ -1,6 +1,7 @@
 ---
 name: review-code
-description: Multi-reviewer code review of changes you're working on — fans out to specialized review sub-agents (code, security, Django access/perf, GitHub Actions), coalesces their findings, and returns one prioritized, deduplicated report. Use when reviewing your own branch/diff: "review my changes", "review this branch", "review this diff", "find bugs in this code", "audit these files". Two modes — `branch` (default, diff vs main) and `paths` (explicit file/dir list). Covers correctness, performance, security, design, testing. To leave comments on someone else's PR use review-pr; to auto-apply fixes use auto-review-code; for a plan use review-plan.
+description: >-
+  Run a multi-reviewer audit of your own branch, diff, or explicit paths and return a prioritized, deduplicated report on correctness, security, performance, design, and tests. Use for "review my changes", "review this branch/diff", "find bugs", or "audit these files". Use review-pr for others' PRs, auto-review-code to apply fixes, and review-plan for plans.
 allowed-tools: Read, Grep, Glob, Bash, Task
 ---
 

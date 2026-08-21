@@ -1,0 +1,20 @@
+{
+  "name": "sontek-skills-local",
+  "interface": {
+    "displayName": "Sontek Skills (Local)"
+  },
+  "plugins": [
+    {
+      "name": "sontek-skills",
+      "source": {
+        "source": "local",
+        "path": "./plugins/sontek-skills"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

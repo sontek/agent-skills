@@ -1,6 +1,7 @@
 ---
 name: sales-email-draft
-description: Draft or polish a sales/GTM email in John Anderson's voice as Founder of Drape — the CI Brain, a CI reliability platform. Use when writing, improving, or formatting an outbound, prospect-facing, or customer email given a goal, topic, recipient context, rough draft, or bullet points. Applies Drape's brand voice and a Win Without Pitching posture. Works for non-sales email too, with the sales posture relaxed. Family: sales-email-draft / sales-email-prospect / sales-email-followup / sales-email-reply.
+description: >-
+  Draft or polish a sales/GTM email in John Anderson's voice as Founder of Drape — the CI Brain, a CI reliability platform. Use when writing, improving, or formatting an outbound, prospect-facing, or customer email given a goal, topic, recipient context, rough draft, or bullet points. Applies Drape's brand voice and a Win Without Pitching posture. Works for non-sales email too, with the sales posture relaxed. Family: sales-email-draft / sales-email-prospect / sales-email-followup / sales-email-reply.
 argument-hint: '<goal, topic, recipient context, rough draft, or bullet points>'
 ---
 

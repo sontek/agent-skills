@@ -1,6 +1,6 @@
 ---
 name: review-design
-description: Architectural / design review of EXISTING code at module scope — coupling, abstraction depth, seams, testability, scalability. Routes the code through the senior-engineer agent (and product-manager when it has user-facing surface) and returns a verdict plus prioritized concerns. Use when asked to "design review this module", "architectural review of this code", "is this module well-designed / too coupled", "review the design of X", "will this service scale", or "put your senior-engineer hat on" over a module or package. Distinct from review-code (diff-scoped bug/security/perf finders), review-plan (reviews a planning doc, not code), and improve-architecture (explores the whole codebase and proposes new designs as RFCs — generative, not evaluative).
+description: Review EXISTING code at module/package scope for coupling, abstraction depth, seams, testability, and scalability; return a verdict and prioritized concerns. Use for "design review this module", "is this too coupled?", or "will this scale?". Use review-code for diff defects, review-plan for plan documents, and improve-architecture for codebase-wide redesign ideas.
 allowed-tools: Read, Grep, Glob, Bash, Task
 ---
 
