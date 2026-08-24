@@ -14,7 +14,7 @@ Adapted from ASD-STE100 Issue 9 (January 2025): 53 rules in 9 sections, 875 appr
 
 - Active voice. "the parser reads the file", not "the file is read by the parser". Procedures: always. Descriptive text: passive is permitted only when the actor is unknown or irrelevant (3.6).
 - A past participle used as an adjective is not passive and is correct (3.3): "the valve is closed", "the field is required".
-- Only simple tenses (3.2): infinitive, imperative, simple present, simple past, simple future. No present perfect: "we received the report", never "we have received the report".
+- Only simple tenses (3.2): infinitive, imperative, simple present, simple past, simple future. No present perfect: "we received the report", never "we have received the report". Extension beyond the literal standard, same spirit: no periphrastic future either — "this enables X", not "this is about to enable X" or "this is going to enable X". Grammatically it is simple present, but the periphrasis adds words without adding meaning, the same failure 3.4 (stacked auxiliaries) names.
 - No stacked auxiliaries (3.4). Not "it is important to note that this may help to improve". Write "this improves X".
 - Use a verb for an action (3.7): "analyze the log", not "perform an analysis of the log".
 - No "-ing" main verb where a simple tense works (3.5).
