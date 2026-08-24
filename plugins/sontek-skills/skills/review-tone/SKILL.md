@@ -122,9 +122,10 @@ Run this checklist after the scripts pass, on the exact final text, not from mem
 
 1. Does the first sentence state the point? (Rule F)
 2. For each sentence: does the reader already know this from the code, the diff, or an earlier message? If yes, cut the sentence or compress it to only the new information. (Rule F)
-3. For each modifying word or short phrase: if you delete it, does the sentence still make the identical claim? If yes, delete it. (Rule H)
-4. For each claim about "the repo" / "the codebase" / "this module": is the writer actually the one observing it? If so, say "we" or "I" instead of naming the system as the subject. (Rule I)
-5. Do two sentences or paragraphs make the same point from different angles? Cut one. (Rule B, redundant restatement)
+3. Does a paragraph explain how something works instead of stating what changed? If it explains mechanism, cut or compress it to the outcome. (Rule F)
+4. For each modifying word or short phrase: if you delete it, does the sentence still make the identical claim? If yes, delete it. (Rule H)
+5. For each sentence whose subject is a system or artifact instead of a person (the repo, the codebase, this module, the pipeline, the service, and so on): is the writer actually the one observing or doing this? If so, name the writer ("we" or "I") instead of the system. (Rule I)
+6. Do two sentences or paragraphs make the same point from different angles? Cut one. (Rule B, redundant restatement)
 
 **Rule F is the one most often skipped**, because a passing lint score gives no signal either way — whether the first sentence states the point, or a paragraph restates something the reader can already see elsewhere (the diff, a linked doc, the skill's own rule catalog), is invisible to `ste_lint.py`. Restating implementation detail the reviewer can already see is a Rule F violation even when every sentence is individually well-formed.
 
