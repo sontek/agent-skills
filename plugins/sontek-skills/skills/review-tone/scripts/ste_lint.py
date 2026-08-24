@@ -13,10 +13,11 @@ Usage:
 
 import re, sys, json, glob, os
 
+# Score v3: adds periphrastic future ("is about to X") to complex_tense.
 # Score v2: adds complex_tense (perfect tenses, modal stacks), exempts
 # adjectival/stative participles from the passive count, moves "provide" to
 # the banned list, adds a noun-train marker and a --strict mode.
-SCORE_VERSION = 2
+SCORE_VERSION = 3
 
 MARKETING = ["seamless","seamlessly","robust","powerful","cutting-edge","effortless","effortlessly",
     "world-class","next-generation","revolutionary","blazing","lightning-fast","elegant","delightful",
@@ -38,6 +39,10 @@ MODAL_HEDGE = ["it is important to note","it should be noted","it is worth notin
     "as mentioned","as noted above"]
 BE = r"(?:am|is|are|was|were|be|been|being)"
 PP_IRREG = r"(?:done|made|sent|read|built|kept|held|set|put|run|written|shown|given|taken|found|got|gotten|seen|known|thrown|drawn)"
+# "going to" reads as periphrastic future ("is going to enable") except when
+# followed by an article, which almost always means literal motion ("is going
+# to the store"). "about to" has no such literal-motion reading worth excluding.
+PERIPHRASTIC_ARTICLES = {"the", "a", "an"}
 # Rule 3.3: a past participle used as an adjective is not passive. These
 # stative participles only count as passive when a by-agent follows.
 STATIVE = r"(?:closed|opened?|damaged|completed?|installed|connected|required|expected|configured|enabled|disabled|deprecated|supported|protected|untouched)"
@@ -59,6 +64,13 @@ def contraction_count(text):
     n = len(re.findall(r"\b\w+['’](?:t|re|ve|ll|m|d)\b", text))
     for m in re.finditer(r"\b(\w+)['’]s\b", text):
         if m.group(1).lower() in CONTRACTION_S_WORDS:
+            n += 1
+    return n
+
+def periphrastic_future_count(text):
+    n = len(re.findall(rf"\b{BE}\s+about to\s+\w+", text, re.I))
+    for m in re.finditer(rf"\b{BE}\s+going to\s+(\w+)", text, re.I):
+        if m.group(1).lower() not in PERIPHRASTIC_ARTICLES:
             n += 1
     return n
 
@@ -129,7 +141,7 @@ def lint(text, strict=False):
         + len(re.findall(rf"\b{BE}\s+{STATIVE}\s+by\b", text, re.I))
     v["complex_tense"] = len(re.findall(
         rf"\b(?:(?:may|might|could|would|should|must|will|shall|can)\s+)?(?:have|has|had)\s+(?:been\s+)?(?:\w+ed|{PP_IRREG})\b",
-        text, re.I))
+        text, re.I)) + periphrastic_future_count(text)
     v["ing_main_verb"] = len(re.findall(rf"\b{BE}\s+\w+ing\b", text, re.I))
     v["nominalization"] = len(re.findall(r"\b(?:perform(?:s|ed)?|conduct(?:s|ed)?|carry out|carries out|make use of|makes use of)\b", text, re.I)) + len(re.findall(r"\b\w{4,}(?:tion|ment|ance|ence)\s+of\b", text, re.I))
     v["phrasal_verb"], _ = count_ci(text, PHRASAL)
